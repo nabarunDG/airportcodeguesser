@@ -31,3 +31,14 @@ export const INSERT_SCORE_QUERY = `
   INSERT INTO score_submissions (day, airport, player_id, score, rounds)
   VALUES (strftime('%Y-%m-%d', 'now'), ?1, ?2, ?3, 1)
 `;
+
+// One row per (day, player_id) — repeated pings from the same browser during
+// the same UTC day accumulate onto the same row rather than creating new
+// ones, so COUNT(DISTINCT player_id) stays an accurate unique-visitor count.
+export const UPSERT_VISIT_QUERY = `
+  INSERT INTO visits (day, player_id, seconds)
+  VALUES (strftime('%Y-%m-%d', 'now'), ?1, ?2)
+  ON CONFLICT (day, player_id) DO UPDATE SET
+    seconds = seconds + excluded.seconds,
+    updated_at = datetime('now')
+`;

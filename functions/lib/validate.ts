@@ -39,3 +39,30 @@ export function validateSubmission(body: unknown, validIata: ReadonlySet<string>
 
   return { ok: true, value: { airport: code, playerId: playerId.trim(), score } };
 }
+
+export interface ValidatedPing {
+  playerId: string;
+  seconds: number;
+}
+
+// A ping only ever reports elapsed wall-clock time since the last ping from
+// the same tab (see src/lib/metrics.ts) — one minute apart at most in
+// practice, so a generous 1-hour cap is purely a sanity bound against a
+// malformed or replayed request, not a real usage ceiling.
+const MAX_PING_SECONDS = 3600;
+
+export function validatePing(body: unknown): { ok: true; value: ValidatedPing } | { ok: false; error: string } {
+  if (typeof body !== 'object' || body === null) {
+    return { ok: false, error: 'Invalid request body.' };
+  }
+  const { playerId, seconds } = body as Record<string, unknown>;
+
+  if (typeof playerId !== 'string' || !playerId.trim() || playerId.length > 64) {
+    return { ok: false, error: 'Missing or invalid player id.' };
+  }
+
+  const secs =
+    typeof seconds === 'number' && Number.isFinite(seconds) ? Math.max(0, Math.min(MAX_PING_SECONDS, Math.round(seconds))) : 0;
+
+  return { ok: true, value: { playerId: playerId.trim(), seconds: secs } };
+}

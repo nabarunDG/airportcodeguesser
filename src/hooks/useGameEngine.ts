@@ -22,6 +22,7 @@ import {
 import type { LeaderboardClient } from '../lib/leaderboardClient';
 import { getPlayerId } from '../lib/playerId';
 import { accumulateTime } from '../lib/timeMetric';
+import { loadUsedToday, saveUsedToday } from '../lib/usedAirportsStore';
 
 interface HintFlags {
   sorted: boolean;
@@ -200,6 +201,21 @@ function reducer(state: EngineState, action: Action): EngineState {
 /** Reveals the "PICK" transition to 'reveal' after the 1s colored-choice-state pause, unless superseded (e.g. by a skip). */
 const ANSWER_REVEAL_DELAY_MS = 1000;
 
+/**
+ * A ref whose contents are computed once, lazily, on first render — unlike
+ * `useRef(expensiveInit())`, which evaluates `expensiveInit()` on every
+ * render even though only the first call's result is kept. Returns a ref
+ * typed as non-nullable `T`, so callers (elsewhere in this file, in other
+ * closures) don't have to re-narrow away a `| null` on every access.
+ */
+function useLazyRef<T>(init: () => T): { current: T } {
+  const ref = useRef<T | null>(null);
+  if (ref.current === null) {
+    ref.current = init();
+  }
+  return ref as { current: T };
+}
+
 export interface GameEngine {
   state: EngineState;
   currentAirport: Airport | undefined;
@@ -227,7 +243,9 @@ export function useGameEngine(
 ): GameEngine {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const usedRef = useRef<Set<string>>(new Set());
+  // Lazy-init from today's (UTC) persisted used-set, not `new Set()` — see
+  // src/lib/usedAirportsStore.ts.
+  const usedRef = useLazyRef<Set<string>>(loadUsedToday);
   const batchRef = useRef<Airport[]>([]);
   const lastActRef = useRef<number>(Date.now());
   const batchStartRef = useRef<number | null>(null);
@@ -254,11 +272,14 @@ export function useGameEngine(
 
   const startBatch = useCallback(() => {
     const batch = buildBatch(airports, usedRef.current);
+    saveUsedToday(usedRef.current);
     batchRef.current = batch;
     batchStartRef.current = Date.now();
     dispatch({ type: 'START_BATCH', barcode: makeBarcode() });
     startRound(0);
-  }, [airports, startRound]);
+    // `usedRef` is a stable object identity across renders (see useLazyRef)
+    // — included for accuracy, but it never actually changes.
+  }, [airports, startRound, usedRef]);
 
   const start = useCallback(() => {
     startBatch();
