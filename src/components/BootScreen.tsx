@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import BaggageCarousel from './BaggageCarousel';
 import './BootScreen.css';
 
 const LOAD_MSGS = [
@@ -49,18 +50,7 @@ export default function BootScreen({ status, message, onRetry }: Props) {
   return (
     <div className="gc-boot">
       <div className="gc-belt-card">
-        <div className="gc-belt">
-          <div className="gc-belt-stripe" />
-          <div className="gc-bag gc-bag--a">
-            <div className="gc-bag-handle" />
-          </div>
-          <div className="gc-bag gc-bag--b">
-            <div className="gc-bag-handle" />
-          </div>
-          <div className="gc-bag gc-bag--c">
-            <div className="gc-bag-handle" />
-          </div>
-        </div>
+        <BaggageCarousel />
         <p className="gc-boot-msg">{LOAD_MSGS[msgIdx]}</p>
         <p className="gc-boot-subnote">Loading route data (one-time, cached after this)</p>
       </div>

@@ -1,3 +1,4 @@
+import BaggageCarousel from '../BaggageCarousel';
 import './HomeScreen.css';
 
 interface Props {
@@ -16,8 +17,8 @@ export default function HomeScreen({ onStart, onGoLeaderboard }: Props) {
         </div>
         <h1 style={{ fontSize: 34, margin: 0 }}>Name that airport</h1>
         <p style={{ fontSize: 14.5, color: 'var(--color-neutral-400)', margin: 0 }}>
-          Which airport has the smartest frequent flyers? Read the clues and pick the right airport. 10 airport codes
-          per boarding group. No clock, no pressure. Hints cost you −2 points.
+          Read clues and pick the right airport. 10 airport codes per boarding group. No clock, no pressure. Hints
+          cost you −2 points. Score points for your home or current airport!
         </p>
         <div className="gc-home-actions">
           <button className="btn btn-primary btn-block" onClick={onStart} style={{ minHeight: 44, fontSize: 15 }}>
@@ -26,6 +27,9 @@ export default function HomeScreen({ onStart, onGoLeaderboard }: Props) {
           <button className="btn btn-secondary btn-block" onClick={onGoLeaderboard} style={{ minHeight: 44 }}>
             Flight Leaders
           </button>
+        </div>
+        <div className="gc-home-belt">
+          <BaggageCarousel />
         </div>
         <p style={{ fontSize: 11, color: 'var(--color-neutral-600)', margin: '4px 0 0' }}>
           10 points per correct answer · max 100 points per group
