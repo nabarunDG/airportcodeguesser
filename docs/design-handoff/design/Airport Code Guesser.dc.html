@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/nocturne-e4db1c41-6123-47a4-955c-4f9281758a89/styles.css">
+  <script src="_ds/nocturne-e4db1c41-6123-47a4-955c-4f9281758a89/_ds_bundle.js"></script>
+  <style>
+    html, body { min-height: 100%; }
+    body { margin: 0; background: var(--color-bg); }
+    a { color: var(--color-accent); } a:hover { color: var(--color-accent-300); }
+    @keyframes gcBelt { from { background-position-x: 0; } to { background-position-x: -56px; } }
+    @keyframes gcBag { from { left: -90px; } to { left: 110%; } }
+    @keyframes gcDrift { from { transform: translateX(-140px); } to { transform: translateX(calc(100vw + 140px)); } }
+    @keyframes gcFly { 0% { transform: translate(-80px, 30px) rotate(8deg); opacity: 0; } 10% { opacity: 0.9; } 90% { opacity: 0.9; } 100% { transform: translate(calc(100vw + 80px), -40px) rotate(8deg); opacity: 0; } }
+    @keyframes gcChip { from { opacity: 0; transform: translateY(7px) scale(0.96); } to { opacity: 1; transform: none; } }
+    @keyframes gcPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+    @keyframes gcFlapSquash { 0%, 93% { transform: scaleY(1); } 96.5% { transform: scaleY(0.15); } 100% { transform: scaleY(1); } }
+    @keyframes gcF1 { 0% { content: "J"; } 16.66% { content: "C"; } 33.33% { content: "H"; } 50% { content: "G"; } 66.66% { content: "S"; } 83.33% { content: "D"; } 100% { content: "J"; } }
+    @keyframes gcF2 { 0% { content: "F"; } 16.66% { content: "D"; } 33.33% { content: "N"; } 50% { content: "R"; } 66.66% { content: "Y"; } 83.33% { content: "X"; } 100% { content: "F"; } }
+    @keyframes gcF3 { 0% { content: "K"; } 16.66% { content: "G"; } 33.33% { content: "D"; } 50% { content: "U"; } 66.66% { content: "D"; } 83.33% { content: "B"; } 100% { content: "K"; } }
+  </style>
+</helmet>
+<div style="min-height: 100dvh; display: flex; flex-direction: column; font-family: var(--font-body); color: var(--color-text); overflow-x: hidden; position: relative;">
+
+  <sc-if value="{{ ambient }}" hint-placeholder-val="{{ true }}">
+    <div style="position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0;">
+      <svg style="position: absolute; top: 9%; opacity: 0.5; filter: blur(1.5px); animation: gcDrift 95s linear infinite;" width="150" height="94" viewBox="0 0 64 40" fill="var(--color-neutral-900)"><path d="M50 32a9 9 0 0 0 1-17.9 13 13 0 0 0-24.6-4.4A10.5 10.5 0 0 0 13 32Z"></path></svg>
+      <svg style="position: absolute; top: 38%; opacity: 0.35; filter: blur(2.5px); animation: gcDrift 130s linear infinite; animation-delay: -70s;" width="110" height="69" viewBox="0 0 64 40" fill="var(--color-accent-900)"><path d="M50 32a9 9 0 0 0 1-17.9 13 13 0 0 0-24.6-4.4A10.5 10.5 0 0 0 13 32Z"></path></svg>
+      <svg style="position: absolute; top: 66%; opacity: 0.45; filter: blur(2px); animation: gcDrift 110s linear infinite; animation-delay: -35s;" width="190" height="119" viewBox="0 0 64 40" fill="var(--color-neutral-900)"><path d="M50 32a9 9 0 0 0 1-17.9 13 13 0 0 0-24.6-4.4A10.5 10.5 0 0 0 13 32Z"></path></svg>
+      <svg style="position: absolute; top: 84%; opacity: 0.3; filter: blur(3px); animation: gcDrift 150s linear infinite; animation-delay: -110s;" width="90" height="56" viewBox="0 0 64 40" fill="var(--color-neutral-900)"><path d="M50 32a9 9 0 0 0 1-17.9 13 13 0 0 0-24.6-4.4A10.5 10.5 0 0 0 13 32Z"></path></svg>
+    </div>
+  </sc-if>
+
+  <div style="display: flex; align-items: center; gap: 12px; padding: 14px 20px; max-width: 620px; width: 100%; margin: 0 auto; box-sizing: border-box; position: relative; z-index: 1;">
+    <div onClick="{{ goHome }}" style="display: flex; align-items: center; gap: 9px; cursor: pointer;">
+      <span style="display: inline-flex; gap: 2.5px;">
+        <span style="display: grid; place-items: center; width: 17px; height: 22px; border-radius: 3.5px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; font-weight: 600; color: var(--color-accent-200); background: linear-gradient(var(--color-neutral-900) 47%, var(--color-neutral-800) 47%, var(--color-neutral-800) 53%, var(--color-neutral-900) 53%); box-shadow: 0 0 0 1px var(--color-neutral-800); animation: gcFlapSquash 3s linear infinite;" style-before="content: 'J'; animation: gcF1 18s step-end infinite;"></span>
+        <span style="display: grid; place-items: center; width: 17px; height: 22px; border-radius: 3.5px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; font-weight: 600; color: var(--color-accent-200); background: linear-gradient(var(--color-neutral-900) 47%, var(--color-neutral-800) 47%, var(--color-neutral-800) 53%, var(--color-neutral-900) 53%); box-shadow: 0 0 0 1px var(--color-neutral-800); animation: gcFlapSquash 3s linear infinite 0.07s;" style-before="content: 'F'; animation: gcF2 18s step-end infinite;"></span>
+        <span style="display: grid; place-items: center; width: 17px; height: 22px; border-radius: 3.5px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; font-weight: 600; color: var(--color-accent-200); background: linear-gradient(var(--color-neutral-900) 47%, var(--color-neutral-800) 47%, var(--color-neutral-800) 53%, var(--color-neutral-900) 53%); box-shadow: 0 0 0 1px var(--color-neutral-800); animation: gcFlapSquash 3s linear infinite 0.14s;" style-before="content: 'K'; animation: gcF3 18s step-end infinite;"></span>
+      </span>
+      <span style="font-family: var(--font-heading); font-weight: 500; font-size: 15px; letter-spacing: 0.16em;">GATE<span style="color: var(--color-accent);">CHECK</span></span>
+    </div>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--color-neutral-500); font-variant-numeric: tabular-nums;">
+      <sc-if value="{{ inPlay }}" hint-placeholder-val="{{ false }}">
+        <span>RD <span style="color: var(--color-text);">{{ roundNo }}</span>/10</span>
+        <span style="color: var(--color-neutral-700);">|</span>
+        <span>PTS <span style="color: var(--color-accent);">{{ score }}</span></span>
+      </sc-if>
+
+    </div>
+  </div>
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px 20px 64px; position: relative;">
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 18px; max-width: 420px;">
+        <div style="display: flex; gap: 8px;">
+          <div style="width: 58px; height: 74px; display: grid; place-items: center; background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); font-family: ui-monospace, Menlo, monospace; font-size: 40px; color: var(--color-accent);">?</div>
+          <div style="width: 58px; height: 74px; display: grid; place-items: center; background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); font-family: ui-monospace, Menlo, monospace; font-size: 40px; color: var(--color-text);">?</div>
+          <div style="width: 58px; height: 74px; display: grid; place-items: center; background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); font-family: ui-monospace, Menlo, monospace; font-size: 40px; color: var(--color-neutral-500);">?</div>
+        </div>
+        <h1 style="font-size: 34px; margin: 0;">Name that airport</h1>
+        <p style="font-size: 14.5px; color: var(--color-neutral-400); margin: 0; text-wrap: pretty;">Which airport has the smartest frequent flyers? Read the clues and pick the right airport. 10 airport codes per boarding group. No clock, no pressure. Hints cost you -2 points.</p>
+        <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 280px; margin-top: 6px;">
+          <button class="btn btn-primary btn-block" onClick="{{ start }}" style="min-height: 44px; font-size: 15px;">Start boarding</button>
+          <button class="btn btn-secondary btn-block" onClick="{{ goLeaderboard }}" style="min-height: 44px;">Flight Leaders</button>
+        </div>
+        <p style="font-size: 11px; color: var(--color-neutral-600); margin: 4px 0 0;">10 points per correct answer · max 100 points per group</p>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px;">
+      <sc-if value="{{ loadFailed }}" hint-placeholder-val="{{ false }}">
+        <div class="card elev-sm" style="max-width: 340px; text-align: center; gap: 10px;">
+          <span class="card-kicker">DELAYED</span>
+          <span class="card-title">Couldn't load route data</span>
+          <p class="card-body">{{ err }}</p>
+          <button class="btn btn-primary" onClick="{{ start }}" style="min-height: 44px;">Retry</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ loadRunning }}" hint-placeholder-val="{{ true }}">
+        <div style="width: min(420px, 88vw);">
+          <div style="position: relative; height: 84px; overflow: hidden; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-sm);">
+            <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 26px; background: repeating-linear-gradient(70deg, var(--color-neutral-900) 0 20px, var(--color-neutral-800) 20px 28px); background-size: 56px 100%; animation: gcBelt 0.9s linear infinite;"></div>
+            <div style="position: absolute; bottom: 24px; width: 46px; height: 32px; border-radius: 5px; background: var(--color-accent-800); animation: gcBag 5s linear infinite;"><div style="width: 18px; height: 8px; border: 2px solid var(--color-accent-600); border-bottom: none; border-radius: 4px 4px 0 0; margin: -9px auto 0;"></div></div>
+            <div style="position: absolute; bottom: 24px; width: 38px; height: 26px; border-radius: 5px; background: var(--color-neutral-700); animation: gcBag 5s linear infinite; animation-delay: 1.8s;"><div style="width: 15px; height: 7px; border: 2px solid var(--color-neutral-500); border-bottom: none; border-radius: 4px 4px 0 0; margin: -8px auto 0;"></div></div>
+            <div style="position: absolute; bottom: 24px; width: 42px; height: 30px; border-radius: 5px; background: var(--color-accent-2-900); animation: gcBag 5s linear infinite; animation-delay: 3.4s;"><div style="width: 16px; height: 7px; border: 2px solid var(--color-accent-2-700); border-bottom: none; border-radius: 4px 4px 0 0; margin: -8px auto 0;"></div></div>
+          </div>
+          <p style="text-align: center; font-size: 13.5px; color: var(--color-neutral-400); margin: 16px 0 4px; animation: gcPulse 2.4s ease-in-out infinite;">{{ loadMsg }}</p>
+          <p style="text-align: center; font-size: 11px; color: var(--color-neutral-600); margin: 0;">Downloading live route data (~large file, once per session)</p>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isGame }}" hint-placeholder-val="{{ false }}">
+    <div style="flex: 1; width: 100%; max-width: 620px; margin: 0 auto; padding: 4px 20px 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px;">
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <sc-for list="{{ codeLetters }}" as="ltr" hint-placeholder-count="3">
+            <div style="width: 64px; height: 82px; display: grid; place-items: center; background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-family: ui-monospace, Menlo, monospace; font-size: 46px; font-weight: 500; color: var(--color-text);">{{ ltr }}</div>
+          </sc-for>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--color-neutral-400); font-variant-numeric: tabular-nums;">
+          <span style="display: inline-flex; align-items: center; gap: 5px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+            <span>Local {{ clock }}</span>
+          </span>
+          <sc-if value="{{ hasWeather }}" hint-placeholder-val="{{ false }}">
+            <span style="display: inline-flex; align-items: center; gap: 5px; animation: gcChip 0.4s ease;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4a2 2 0 0 1 4 0v9a4 4 0 1 1-4 0Z"></path></svg>
+              <span>{{ tempF }}°F / {{ tempC }}°C</span>
+            </span>
+          </sc-if>
+          <sc-if value="{{ showCountry }}" hint-placeholder-val="{{ false }}">
+            <span class="tag tag-accent" style="animation: gcChip 0.4s ease;">{{ ansCountry }}</span>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <span style="font-size: 10.5px; color: var(--color-neutral-600); align-self: center;">free clues<br></span><button onClick="{{ pullDep }}" style="font: inherit; font-size: 12.5px; cursor: pointer; color: {{ depColor }}; background: transparent; border: 1px solid var(--color-divider); border-radius: 20px; padding: 7px 14px; min-height: 34px;">Departures</button>
+          <button onClick="{{ pullCar }}" style="font: inherit; font-size: 12.5px; cursor: pointer; color: {{ carColor }}; background: transparent; border: 1px solid var(--color-divider); border-radius: 20px; padding: 7px 14px; min-height: 34px;">Airlines</button>
+          <button onClick="{{ pullDest }}" style="font: inherit; font-size: 12.5px; cursor: pointer; color: {{ destColor }}; background: transparent; border: 1px solid var(--color-divider); border-radius: 20px; padding: 7px 14px; min-height: 34px;">Destinations</button>
+          
+        </div>
+
+        <sc-if value="{{ depOn }}" hint-placeholder-val="{{ false }}">
+          <div style="animation: gcChip 0.35s ease; font-size: 13px; color: var(--color-neutral-300); padding: 2px 2px 0;">
+            Est. <strong style="color: var(--color-text);">{{ depBucket }}</strong> daily departures · serves <strong style="color: var(--color-text);">{{ destCount }}</strong> nonstop destinations
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ carOn }}" hint-placeholder-val="{{ false }}">
+          <div style="animation: gcChip 0.35s ease; display: flex; flex-wrap: wrap; gap: 5px; align-items: center;">
+            <sc-for list="{{ carrierList }}" as="c" hint-placeholder-count="6">
+              <span class="tag tag-neutral" style="font-family: ui-monospace, Menlo, monospace; font-size: 10.5px;">{{ c.label }}</span>
+            </sc-for>
+            <sc-if value="{{ carMore }}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; color: var(--color-neutral-500);">+{{ carMoreN }} more</span></sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ destOn }}" hint-placeholder-val="{{ false }}">
+          <div style="animation: gcChip 0.35s ease; display: flex; flex-wrap: wrap; gap: 5px; align-items: center;">
+            <sc-for list="{{ destList }}" as="d" hint-placeholder-count="8">
+              <span class="tag tag-accent-2" style="font-family: ui-monospace, Menlo, monospace; font-size: 10.5px;">{{ d.label }}</span>
+            </sc-for>
+            <sc-if value="{{ destMore }}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; color: var(--color-neutral-500);">+{{ destMoreN }} more</span></sc-if>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="border: 1.5px solid var(--color-divider); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-surface) 55%, transparent); overflow: hidden;">
+        <div style="height: 14px; background: repeating-linear-gradient(45deg, var(--color-accent-900) 0 8px, transparent 8px 16px); border-bottom: 1px solid var(--color-divider);"></div>
+        <div style="padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent);">DEEP HINTS</span>
+            <span style="font-size: 10px; color: var(--color-neutral-600);">−{{ hintCost }} pts each</span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{ hintChips }}" as="h" hint-placeholder-count="4">
+              <button onClick="{{ h.use }}" disabled="{{ h.done }}" style="font: inherit; font-size: 12px; cursor: pointer; min-height: 34px; padding: 6px 12px; border-radius: 20px; white-space: nowrap; border: 1px solid {{ h.border }}; color: {{ h.color }}; background: {{ h.bg }};">{{ h.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 9px;">
+        <sc-for list="{{ choices }}" as="c" hint-placeholder-count="5">
+          <button onClick="{{ c.pick }}" style="font: inherit; text-align: left; cursor: pointer; min-height: 52px; padding: 12px 16px; border-radius: var(--radius-md); background: {{ c.bg }}; border: 1px solid {{ c.border }}; color: var(--color-text); opacity: {{ c.op }}; display: flex; flex-direction: column; gap: 2px; transition: border-color 0.15s, background 0.15s;" style-hover="border-color: var(--color-accent-600);">
+            <span style="font-size: 15px;">{{ c.name }}</span>
+            <sc-if value="{{ c.showCity }}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: var(--color-accent-300); animation: gcChip 0.35s ease;">{{ c.city }}</span></sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isReveal }}" hint-placeholder-val="{{ false }}">
+    <div style="flex: 1; width: 100%; max-width: 620px; margin: 0 auto; padding: 12px 20px 40px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center;">
+      <div style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 22px; white-space: nowrap; background: {{ verdictBg }}; color: {{ verdictColor }}; font-family: var(--font-heading); font-weight: 500; font-size: 16px; letter-spacing: 0.1em; animation: gcChip 0.4s ease;">
+        <sc-if value="{{ verdictOk }}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 10 18 19.5 6.5"></path></svg></sc-if>
+        <sc-if value="{{ verdictNo }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg></sc-if>
+        <span>{{ revealVerdict }}</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-family: ui-monospace, Menlo, monospace; font-size: 40px; color: var(--color-accent);">{{ ansCode }}</div>
+        <h2 style="font-size: 26px; margin: 0;">{{ ansName }}</h2>
+        <p style="font-size: 14px; color: var(--color-neutral-400); margin: 0;">{{ ansPlace }}</p>
+        <p style="font-size: 14px; margin: 6px 0 0; color: {{ ptsColor }};">{{ ptsLine }}</p>
+      </div>
+      <div class="card elev-sm" style="max-width: 380px; width: 100%; text-align: left;">
+        <span class="card-kicker">From the flight logs</span>
+        <p class="card-body" style="font-size: 13.5px;">{{ fact }}</p>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+        <svg width="180" height="100" viewBox="0 0 200 110">
+          <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--color-divider)" stroke-width="6" stroke-linecap="round"></path>
+          <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--color-accent)" stroke-width="6" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="{{ dialOffset }}" style="transition: stroke-dashoffset 0.9s cubic-bezier(0.3, 1.3, 0.4, 1);"></path>
+          <g style="transform: rotate({{ needleDeg }}deg); transform-origin: 100px 100px; transition: transform 0.9s cubic-bezier(0.3, 1.3, 0.4, 1);">
+            <line x1="100" y1="100" x2="100" y2="32" stroke="var(--color-accent)" stroke-width="3" stroke-linecap="round"></line>
+          </g>
+          <circle cx="100" cy="100" r="6" fill="var(--color-surface)" stroke="var(--color-accent)" stroke-width="2"></circle>
+          <text x="14" y="108" fill="var(--color-neutral-600)" font-size="10" font-family="Inter, sans-serif">0</text>
+          <text x="172" y="108" fill="var(--color-neutral-600)" font-size="10" font-family="Inter, sans-serif">100</text>
+        </svg>
+        <span style="font-size: 12px; color: var(--color-neutral-500); font-variant-numeric: tabular-nums;">{{ score }} points this group</span>
+      </div>
+      <button class="btn btn-primary" onClick="{{ next }}" style="min-height: 46px; min-width: 220px;">{{ nextLabel }}</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isSummary }}" hint-placeholder-val="{{ false }}">
+    <div style="flex: 1; width: 100%; max-width: 620px; margin: 0 auto; padding: 12px 20px 40px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+      <div style="width: min(400px, 100%); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-md); overflow: hidden;">
+        <div style="padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; background: var(--color-section); ">
+          <span style="font-family: var(--font-heading); font-weight: 500; letter-spacing: 0.12em; font-size: 13px;">GATE CHECK AIR</span>
+          <span style="font-size: 11px; color: var(--color-neutral-300); font-variant-numeric: tabular-nums;">GROUP {{ boardGroup }}</span>
+        </div>
+        <div style="padding: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 10px; text-align: left;">
+          <div><div style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-neutral-500); text-transform: uppercase;">Frequent Flyer Status</div><div style="font-size: 14px; color: var(--color-accent-300);">{{ ffStatus }}</div></div>
+          <div><div style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-neutral-500); text-transform: uppercase;">Flight</div><div style="font-size: 14px; font-variant-numeric: tabular-nums;">GC-{{ batchNum }}0{{ correct }}</div></div>
+          <div><div style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-neutral-500); text-transform: uppercase;">Correct</div><div style="font-size: 14px; font-variant-numeric: tabular-nums;">{{ correct }} / 10</div></div>
+          <div><div style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-neutral-500); text-transform: uppercase;">Hints used</div><div style="font-size: 14px; font-variant-numeric: tabular-nums;">{{ hintsUsed }}</div></div>
+          <div style="grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px; padding-top: 4px;">
+            <span style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-neutral-500); text-transform: uppercase;">Score</span>
+            <span style="font-family: ui-monospace, Menlo, monospace; font-size: 40px; color: var(--color-accent); line-height: 1;">{{ score }}</span>
+            <span style="font-size: 13px; color: var(--color-neutral-500);">/ 100</span>
+          </div>
+        </div>
+        <div style="border-top: 1.5px dashed var(--color-divider); padding: 14px 18px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="height: 34px; display: flex; align-items: stretch; opacity: 0.7; overflow: hidden;">
+            <sc-for list="{{ barcodeBars }}" as="b" hint-placeholder-count="40">
+              <div style="flex: none; width: {{ b.w }}; margin-right: {{ b.g }}; background: var(--color-neutral-300);"></div>
+            </sc-for>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--color-neutral-500); font-variant-numeric: tabular-nums;">
+            <span>{{ todayUTC }} UTC</span>
+            <span>time on board {{ batchTime }}</span>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ notSaved }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; gap: 8px; align-items: flex-end; width: min(400px, 100%);">
+          <div class="field" style="flex: 1;">
+            <label>Your home or current airport (required)</label>
+            <input class="input" value="{{ homeInput }}" onChange="{{ onHomeInput }}" maxLength="3" placeholder="RDU" style="text-transform: uppercase; font-family: ui-monospace, Menlo, monospace; min-height: 44px;">
+          </div>
+          <button class="btn btn-primary" onClick="{{ saveScore }}" style="min-height: 44px;">Post score</button>
+        </div>
+        <sc-if value="{{ homeErrOn }}" hint-placeholder-val="{{ false }}">
+          <p style="width: min(400px, 100%); font-size: 12px; color: var(--color-accent-300); margin: -12px 0 0; animation: gcChip 0.35s ease;">{{ homeErr }}</p>
+        </sc-if>
+      </sc-if>
+
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-primary" disabled="{{ lockNav }}" onClick="{{ start }}" style="min-height: 44px;">New boarding group</button>
+        <button class="btn btn-secondary" disabled="{{ lockNav }}" onClick="{{ goLeaderboard }}" style="min-height: 44px;">Flight Leaders</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isLeaderboard }}" hint-placeholder-val="{{ false }}">
+    <div style="flex: 1; width: 100%; max-width: 620px; margin: 0 auto; padding: 12px 20px 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <h2 style="font-size: 24px; margin: 0 0 4px;">Flight Leaders</h2>
+        <p style="font-size: 12.5px; color: var(--color-neutral-500); margin: 0; font-variant-numeric: tabular-nums;">{{ todayUTC }} UTC · Score points for your airport!</p>
+      </div>
+      <table class="table">
+        <thead><tr>
+          <th style="width: 40px; text-align: center;">#</th>
+          <th>Airport</th>
+          <th style="text-align: center;">PAX</th>
+          <th style="text-align: center;">Rounds</th>
+          <th style="text-align: center;"><span onClick="{{ sortByAvg }}" style="cursor: pointer; user-select: none; color: {{ sortAvgColor }};">Avg {{ avgArrow }}</span></th>
+          <th style="text-align: center;"><span onClick="{{ sortByTotal }}" style="cursor: pointer; user-select: none; color: {{ sortTotalColor }};">Score {{ scoreArrow }}</span></th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ lbRows }}" as="r" hint-placeholder-count="5">
+            <tr>
+              <td style="text-align: center; color: var(--color-neutral-500); font-variant-numeric: tabular-nums;">{{ r.rank }}</td>
+              <td><span style="font-family: ui-monospace, Menlo, monospace;">{{ r.home }}</span><sc-if value="{{ r.you }}" hint-placeholder-val="{{ false }}"><span class="tag tag-accent" style="margin-left: 8px; font-size: 9.5px;">YOURS</span></sc-if></td>
+              <td style="text-align: center; font-variant-numeric: tabular-nums; color: var(--color-neutral-400);">{{ r.pax }}</td>
+              <td style="text-align: center; font-variant-numeric: tabular-nums; color: var(--color-neutral-400);">{{ r.rounds }}</td>
+              <td style="text-align: center; font-variant-numeric: tabular-nums; color: var(--color-neutral-400);">{{ r.avg }}</td>
+              <td style="text-align: center; font-variant-numeric: tabular-nums; color: var(--color-accent-300);">{{ r.score }}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+      <sc-if value="{{ lbEmpty }}" hint-placeholder-val="{{ false }}"><p style="font-size: 13px; color: var(--color-neutral-500);">No scores posted today yet — be the first on the list.</p></sc-if>
+      <div><button class="btn btn-secondary" onClick="{{ goHome }}" style="min-height: 44px;">Back to gate</button></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ nudge }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" style="z-index: 40;">
+      <div class="dialog">
+        <span class="dialog-title">Still there?</span>
+        <p class="dialog-body">No rush — but this round will taxi away in 30 seconds if nobody's aboard.</p>
+        <div class="dialog-actions"><button class="btn btn-primary" onClick="{{ dismissNudge }}" style="min-height: 44px;">I'm here</button></div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;ambientMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Look&quot;}}">
+const DATA_URL = 'https://raw.githubusercontent.com/Jonty/airline-route-data/main/airline_routes.json';
+const LOAD_MSGS = ['Loading global route data…', 'Unloading 3,000+ airports onto the belt…', 'Cross-checking carrier manifests…', 'Screening liquids over 100 ml…', 'Almost at the carousel…'];
+const CONTS = ['NA', 'EU', 'AS', 'SA', 'AF', 'OC'];
+
+class Component extends DCLogic {
+  state = { screen: 'home', dataStatus: 'idle', err: '', batchNum: 0, roundIdx: 0, score: 0, correct: 0, hintsUsed: 0,
+    answered: false, answeredIdx: -1, timedOut: false, nudge: false, weather: null, clock: '—:—', elapsed: 0,
+    clues: { dep: false, car: false, dest: false }, hints: { sorted: false, names: false, cities: false, country: false },
+    homeInput: '', homeErr: '', saved: false, lb: [], lbSort: 'total', lbDir: 'desc' };
+
+  componentDidMount() {
+    this.used = new Set(); this.batch = []; this.choices = []; this.roundHints = 0; this.fact = '';
+    this.sessionStart = Date.now(); this.lastAct = Date.now();
+    this.timer = setInterval(() => this.tick(), 1000);
+    this.loadLB();
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  hintCost() { return 2; }
+  minRoutes() { return 8; }
+
+  tick() {
+    const s = { elapsed: Math.floor((Date.now() - this.sessionStart) / 1000) };
+    const a = this.cur();
+    if (a && (this.state.screen === 'game' || this.state.screen === 'reveal')) {
+      try { s.clock = new Intl.DateTimeFormat('en-US', { timeZone: a.timezone, hour: 'numeric', minute: '2-digit' }).format(new Date()); } catch (e) { s.clock = '—:—'; }
+    }
+    if (this.state.screen === 'game' && !this.state.answered) {
+      const idle = (Date.now() - this.lastAct) / 1000;
+      if (idle > 150) { this.skipRound(); return; }
+      if (idle > 120 && !this.state.nudge) s.nudge = true;
+    }
+    this.setState(s);
+  }
+  act() { this.lastAct = Date.now(); if (this.state.nudge) this.setState({ nudge: false }); }
+  cur() { return this.batch && this.batch[this.state.roundIdx]; }
+
+  async start() {
+    if (this.all) { this.startBatch(); return; }
+    this.setState({ screen: 'loading', dataStatus: 'loading', err: '' });
+    try {
+      const r = await fetch(DATA_URL);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const json = await r.json();
+      this.all = Object.values(json).filter(a => a && a.iata && a.name && a.city_name && a.routes && a.routes.length >= 3);
+      this.startBatch();
+    } catch (e) { this.setState({ dataStatus: 'error', err: 'The route data didn\u2019t make the connection (' + (e && e.message || e) + '). Check your network and retry.' }); }
+  }
+
+  shuffle(l) { for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } return l; }
+  wpick(list) { let t = 0; for (const a of list) t += a.routes.length * a.routes.length; let r = Math.random() * t; for (const a of list) { r -= a.routes.length * a.routes.length; if (r <= 0) return a; } return list[list.length - 1]; }
+
+  startBatch() {
+    let pool = this.all.filter(a => a.routes.length >= this.minRoutes() && !this.used.has(a.iata));
+    if (pool.length < 80) { this.used.clear(); pool = this.all.filter(a => a.routes.length >= this.minRoutes()); }
+    const picked = new Set(); const batch = [];
+    const bigs = pool.filter(a => a.routes.length >= 45);
+    if (bigs.length) { const b = this.wpick(bigs); picked.add(b.iata); batch.push(b); }
+    for (const c of CONTS) {
+      const cand = pool.filter(a => a.continent === c && !picked.has(a.iata));
+      if (cand.length) { const a = this.wpick(cand); picked.add(a.iata); batch.push(a); }
+    }
+    while (batch.length < 10) {
+      const cand = pool.filter(a => !picked.has(a.iata));
+      if (!cand.length) break;
+      const a = this.wpick(cand); picked.add(a.iata); batch.push(a);
+    }
+    this.shuffle(batch);
+    batch.forEach(a => this.used.add(a.iata));
+    this.batch = batch; this.batchStart = Date.now(); this.doneRounds = 0;
+    this.barcode = Array.from({ length: 52 }, () => ({ w: 1 + Math.floor(Math.random() * 3) + 'px', g: 1 + Math.floor(Math.random() * 4) + 'px' }));
+    this.setState({ batchNum: this.state.batchNum + 1, score: 0, correct: 0, hintsUsed: 0, saved: false, homeInput: '' });
+    this.startRound(0);
+  }
+
+  startRound(i) {
+    const a = this.batch[i];
+    this.choices = this.makeChoices(a);
+    this.fact = this.makeFact(a);
+    this.roundHints = 0; this.lastAct = Date.now();
+    this.carrierCache = null; this.destCache = null;
+    this.setState({ screen: 'game', roundIdx: i, answered: false, answeredIdx: -1, timedOut: false, nudge: false, weather: null, clock: '—:—',
+      clues: { dep: false, car: false, dest: false }, hints: { sorted: false, names: false, cities: false, country: false } });
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + a.latitude + '&longitude=' + a.longitude + '&current=temperature_2m')
+      .then(r => r.json())
+      .then(j => { const c = j && j.current && j.current.temperature_2m; if (typeof c === 'number' && this.cur() === a) this.setState({ weather: { c: Math.round(c), f: Math.round(c * 9 / 5 + 32) } }); })
+      .catch(() => {});
+  }
+
+  makeChoices(ans) {
+    const pool = this.all.filter(a => a.routes.length >= 8 && a.iata !== ans.iata && a.name !== ans.name);
+    const lat = +ans.latitude, lon = +ans.longitude;
+    const dist = a => Math.abs(+a.latitude - lat) + Math.abs(+a.longitude - lon);
+    const taken = new Set([ans.iata]); const out = [];
+    const take = (list, n) => { const l = list.filter(a => !taken.has(a.iata) && !out.some(o => o.name === a.name)); for (let k = 0; k < n && l.length; k++) { const j = Math.floor(Math.random() * l.length); const a = l.splice(j, 1)[0]; taken.add(a.iata); out.push(a); } };
+    take(pool.filter(a => a.city_name !== ans.city_name).sort((x, y) => dist(x) - dist(y)).slice(0, 10), 2);
+    take(pool.filter(a => a.name[0].toUpperCase() === ans.name[0].toUpperCase()), 1);
+    take(pool.filter(a => a.city_name[0].toUpperCase() === ans.city_name[0].toUpperCase()), 1);
+    while (out.length < 4) take([this.wpick(pool.filter(a => a.routes.length >= 20))], 1);
+    return this.shuffle([...out.map(a => ({ a, ok: false })), { a: ans, ok: true }]);
+  }
+
+  makeFact(a) {
+    const facts = [];
+    let far = null, busy = null;
+    for (const r of a.routes) { if (!far || r.km > far.km) far = r; if (!busy || (r.carriers || []).length > (busy.carriers || []).length) busy = r; }
+    const countries = new Set();
+    for (const r of a.routes) { const d = this.all && this.allByCode && this.allByCode[r.iata]; if (d) countries.add(d.country); }
+    if (!this.allByCode) { this.allByCode = {}; this.all.forEach(x => { this.allByCode[x.iata] = x; }); for (const r of a.routes) { const d = this.allByCode[r.iata]; if (d) countries.add(d.country); } }
+    if (far && far.km) facts.push('Its longest nonstop hop is ' + far.km.toLocaleString() + ' km to ' + far.iata + ' — about ' + Math.round(far.min / 60) + ' hours in the air.');
+    if (busy && busy.carriers && busy.carriers.length > 1) facts.push(busy.carriers.length + ' different airlines compete on its busiest route, to ' + busy.iata + '.');
+    if (countries.size > 1) facts.push('You can fly nonstop from here to ' + countries.size + ' countries.');
+    if (a.elevation > 1500) facts.push('At ' + a.elevation.toLocaleString() + ' m elevation, planes need a longer takeoff roll here.');
+    if (facts.length === 0) facts.push('It serves ' + a.routes.length + ' nonstop destinations.');
+    return facts[Math.floor(Math.random() * facts.length)];
+  }
+
+  useHint(k) {
+    if (this.state.hints[k] || this.state.answered) return;
+    this.act(); this.roundHints++;
+    this.setState({ hints: { ...this.state.hints, [k]: true }, hintsUsed: this.state.hintsUsed + 1 });
+  }
+  pullClue(k) { this.act(); if (!this.state.clues[k]) this.setState({ clues: { ...this.state.clues, [k]: true } }); }
+
+  pick(i) {
+    if (this.state.answered) return;
+    this.act();
+    const ok = this.choices[i].ok;
+    const pts = ok ? Math.max(2, 10 - this.roundHints * this.hintCost()) : 0;
+    this.roundPts = pts; this.doneRounds = (this.doneRounds || 0) + 1;
+    this.setState({ answered: true, answeredIdx: i, score: this.state.score + pts, correct: this.state.correct + (ok ? 1 : 0) });
+    setTimeout(() => { if (this.state.answered) this.setState({ screen: 'reveal' }); }, 1000);
+  }
+  skipRound() { this.roundPts = 0; this.setState({ answered: true, answeredIdx: -1, timedOut: true, nudge: false, screen: 'reveal' }); }
+  next() {
+    const i = this.state.roundIdx + 1;
+    if (i >= this.batch.length) { this.saveTimeMetric(); this.setState({ screen: 'summary' }); } else this.startRound(i);
+  }
+
+  saveTimeMetric() { try { const t = +(localStorage.getItem('gatecheck_time') || 0); localStorage.setItem('gatecheck_time', String(t + Math.floor((Date.now() - this.batchStart) / 1000))); } catch (e) {} }
+
+  todayUTC() { return new Date().toISOString().slice(0, 10); }
+  todayDisplay() { return new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); }
+  loadLB() {
+    let lb = [];
+    try { lb = JSON.parse(localStorage.getItem('gatecheck_lb') || '[]'); } catch (e) {}
+    if (!Array.isArray(lb)) lb = [];
+    this.setState({ lb });
+  }
+  myId() {
+    if (this._myId) return this._myId;
+    try {
+      let id = localStorage.getItem('gatecheck_me');
+      if (!id) { id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7); localStorage.setItem('gatecheck_me', id); }
+      this._myId = id;
+    } catch (e) { this._myId = 'me'; }
+    return this._myId;
+  }
+  saveScore() {
+    const home = (this.state.homeInput || '').toUpperCase().trim();
+    if (!this.allByCode && this.all) { this.allByCode = {}; this.all.forEach(x => { this.allByCode[x.iata] = x; }); }
+    if (!this.allByCode || !this.allByCode[home]) { this.setState({ homeErr: home ? home + ' isn\u2019t a commercial airport we know — try your nearest one.' : 'Enter your home airport\u2019s 3-letter code.' }); return; }
+    if ((this.doneRounds || 0) < 10) { this.setState({ homeErr: 'Only full sets of 10 count — this group had skipped rounds, so it can\u2019t be posted.' }); return; }
+    const id = this.myId(); const today = this.todayUTC();
+    const lb = this.state.lb.slice();
+    const rounds = (this.doneRounds || 0) >= 10 ? 1 : 0; // a "round" = a fully completed set of 10
+    const mine = lb.find(e => e.d === today && e.id === id && e.h === home);
+    if (mine) { mine.s += this.state.score; mine.r = (mine.r || 10) + rounds; }
+    else lb.push({ d: today, s: this.state.score, h: home, r: rounds, id });
+    try { localStorage.setItem('gatecheck_lb', JSON.stringify(lb.slice(-200))); } catch (e) {}
+    this.setState({ lb, saved: true, homeErr: '', screen: 'leaderboard' });
+  }
+
+  ffTier(score) {
+    const TIERS = ['Standby', 'Middle Seat', 'Basic Economy', 'Main Cabin', 'Extra Legroom', 'Silver Wings', 'Gold Wings', 'Platinum', 'Diamond', 'Million Miler'];
+    return TIERS[Math.min(9, Math.floor(score / 10))];
+  }
+  fmtDur(sec) { const m = Math.floor(sec / 60), s = sec % 60; return m + 'm ' + String(s).padStart(2, '0') + 's'; }
+
+  renderVals() {
+    const st = this.state; const a = this.cur();
+    const inGame = st.screen === 'game';
+    const cost = this.hintCost();
+    let carrierList = [], carMoreN = 0, destList = [], destMoreN = 0, depBucket = '', destCount = 0;
+    if (a) {
+      if (!this.carrierCache) {
+        const m = new Map();
+        for (const r of a.routes) for (const c of (r.carriers || [])) if (c.iata) m.set(c.iata, c.name);
+        this.carrierCache = this.shuffle([...m.entries()].map(([code, name]) => ({ code, name })));
+      }
+      const cl = this.carrierCache.slice(0, 28);
+      carrierList = cl.map(c => ({ label: st.hints.names ? (c.code + ' ' + c.name) : c.code }));
+      carMoreN = Math.max(0, this.carrierCache.length - 28);
+      if (!this.destCache) {
+        this.destCache = a.routes.map(r => ({ code: r.iata, n: (r.carriers || []).length || 1 }));
+      }
+      destCount = this.destCache.length;
+      const sorted = st.hints.sorted;
+      const dl = sorted ? this.destCache.slice().sort((x, y) => y.n - x.n) : this.destCache.slice().sort((x, y) => x.code < y.code ? -1 : 1);
+      destList = dl.slice(0, 36).map(d => ({ label: sorted ? (d.code + ' ×' + d.n) : d.code }));
+      destMoreN = Math.max(0, destCount - 36);
+      const deps = this.destCache.reduce((s2, d) => s2 + d.n, 0);
+      depBucket = deps >= 300 ? '300+' : (Math.max(10, Math.floor(deps / 10) * 10) + '+');
+    }
+    const choices = (this.choices || []).map((c, i) => {
+      const isPick = st.answeredIdx === i;
+      let border = 'var(--color-divider)', bg = 'var(--color-surface)', op = '1';
+      if (st.answered) {
+        if (c.ok) { border = 'var(--color-accent)'; bg = 'color-mix(in srgb, var(--color-accent) 14%, var(--color-surface))'; }
+        else if (isPick) { border = 'var(--color-neutral-500)'; op = '0.75'; }
+        else { op = '0.4'; }
+      }
+      return { name: c.a.name, city: c.a.city_name + ', ' + c.a.country, showCity: st.hints.cities && !st.answered ? true : (st.hints.cities && st.answered), border, bg, op, pick: () => this.pick(i) };
+    });
+    const hintDefs = [
+      { k: 'sorted', label: 'Sort routes by traffic' }, { k: 'names', label: 'Airline names' },
+      { k: 'cities', label: 'Show cities' }, { k: 'country', label: 'Reveal country' }];
+    const hintChips = hintDefs.map(h => {
+      const done = st.hints[h.k];
+      return { label: done ? h.label + ' ✓' : h.label + '  −' + cost, done,
+        border: done ? 'var(--color-accent-800)' : 'var(--color-accent)', color: done ? 'var(--color-accent-300)' : 'var(--color-accent)',
+        bg: done ? 'var(--color-accent-900)' : 'transparent', use: () => this.useHint(h.k) };
+    });
+    const today = this.todayUTC();
+    const agg = new Map();
+    for (const e of st.lb.filter(x => x.d === today)) {
+      const g = agg.get(e.h) || { h: e.h, s: 0, r: 0, ids: new Set(), you: false };
+      g.s += e.s; g.r += (e.r || 0); g.ids.add(e.id || Math.random());
+      if (e.id && e.id === this.myId()) g.you = true;
+      agg.set(e.h, g);
+    }
+    const byAvg = st.lbSort === 'avg';
+    const dir = st.lbDir === 'asc' ? -1 : 1;
+    const avgOf = g => g.r ? g.s / g.r : 0;
+    const lbRows = [...agg.values()].sort((x, y) => dir * (byAvg ? avgOf(y) - avgOf(x) : y.s - x.s)).slice(0, 20)
+      .map((g, i) => ({ rank: i + 1, home: g.h, score: g.s, rounds: g.r, avg: avgOf(g).toFixed(1), pax: g.ids.size, you: g.you }));
+    const verdict = st.timedOut ? 'TAXIED AWAY' : (st.answeredIdx >= 0 && this.choices[st.answeredIdx] && this.choices[st.answeredIdx].ok ? 'CORRECT' : 'NOT QUITE');
+    const pts = this.roundPts || 0;
+    return {
+      isHome: st.screen === 'home', isLoading: st.screen === 'loading', isGame: inGame, isReveal: st.screen === 'reveal',
+      isSummary: st.screen === 'summary', isLeaderboard: st.screen === 'leaderboard',
+      inPlay: inGame || st.screen === 'reveal', notInPlay: !(inGame || st.screen === 'reveal'),
+      loadFailed: st.dataStatus === 'error', loadRunning: st.dataStatus === 'loading',
+      loadMsg: LOAD_MSGS[Math.floor(st.elapsed / 3) % LOAD_MSGS.length], err: st.err,
+      sessionLabel: 'SESSION ' + this.fmtDur(st.elapsed), ambient: this.props.ambientMotion ?? true,
+      roundNo: st.roundIdx + 1, score: st.score, batchNum: st.batchNum, correct: st.correct, hintsUsed: st.hintsUsed,
+      hintCost: cost, codeLetters: a ? a.iata.split('') : [],
+      clock: st.clock, hasWeather: !!st.weather, tempF: st.weather ? st.weather.f : '', tempC: st.weather ? st.weather.c : '',
+      showCountry: st.hints.country, ansCountry: a ? a.country : '',
+      depOn: st.clues.dep, carOn: st.clues.car, destOn: st.clues.dest,
+      depColor: st.clues.dep ? 'var(--color-neutral-500)' : 'var(--color-text)',
+      carColor: st.clues.car ? 'var(--color-neutral-500)' : 'var(--color-text)',
+      destColor: st.clues.dest ? 'var(--color-neutral-500)' : 'var(--color-text)',
+      pullDep: () => this.pullClue('dep'), pullCar: () => this.pullClue('car'), pullDest: () => this.pullClue('dest'),
+      depBucket, destCount, carrierList, carMore: carMoreN > 0, carMoreN, destList, destMore: destMoreN > 0, destMoreN,
+      hintChips, choices,
+      revealVerdict: verdict, ansCode: a ? a.iata : '', ansName: a ? a.name : '', ansPlace: a ? (a.city_name + ' · ' + a.country) : '',
+      ptsLine: st.timedOut ? 'Round skipped — 0 pts' : (pts > 0 ? '+' + pts + ' pts' + (this.roundHints ? ' (' + this.roundHints + ' hint' + (this.roundHints > 1 ? 's' : '') + ' used)' : '') : 'No points this round'),
+      ptsColor: pts > 0 ? 'var(--color-accent-300)' : 'var(--color-neutral-500)',
+      fact: this.fact, needleDeg: -90 + (st.score / 100) * 180, dialOffset: 100 - st.score,
+      verdictOk: verdict === 'CORRECT', verdictNo: verdict !== 'CORRECT' && !st.timedOut,
+      verdictColor: verdict === 'CORRECT' ? 'var(--color-accent-100)' : 'var(--color-neutral-200)',
+      verdictBg: verdict === 'CORRECT' ? 'var(--color-accent-800)' : 'var(--color-neutral-800)',
+      nextLabel: st.roundIdx + 1 >= 10 ? 'See boarding pass' : 'Next code',
+      next: () => this.next(), start: () => this.start(),
+      goHome: () => { this.act(); this.setState({ screen: 'home' }); },
+      goLeaderboard: () => { this.loadLB(); this.setState({ screen: 'leaderboard' }); },
+      todayUTC: this.todayDisplay(), batchTime: this.batchStart ? this.fmtDur(Math.floor((Date.now() - this.batchStart) / 1000)) : '—',
+      notSaved: !st.saved, homeInput: st.homeInput, homeErr: st.homeErr, homeErrOn: !!st.homeErr,
+      ffStatus: this.ffTier(st.score), barcodeBars: this.barcode || [],
+      boardGroup: Math.max(1, 10 - Math.floor(st.score / 10)),
+      lockNav: !st.saved && st.homeInput.length < 3,
+      onHomeInput: (e) => this.setState({ homeInput: e.target.value.toUpperCase().slice(0, 3), homeErr: '' }),
+      saveScore: () => this.saveScore(),
+      lbRows, lbEmpty: lbRows.length === 0,
+      sortTotalColor: !byAvg ? 'var(--color-accent)' : 'inherit',
+      sortAvgColor: byAvg ? 'var(--color-accent)' : 'inherit',
+      scoreArrow: !byAvg ? (st.lbDir === 'desc' ? '\u25BC' : '\u25B2') : '\u21C5',
+      avgArrow: byAvg ? (st.lbDir === 'desc' ? '\u25BC' : '\u25B2') : '\u21C5',
+      sortByTotal: () => this.setState(byAvg ? { lbSort: 'total', lbDir: 'desc' } : { lbDir: st.lbDir === 'desc' ? 'asc' : 'desc' }),
+      sortByAvg: () => this.setState(!byAvg ? { lbSort: 'avg', lbDir: 'desc' } : { lbDir: st.lbDir === 'desc' ? 'asc' : 'desc' }),
+      nudge: st.nudge, dismissNudge: () => this.act(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+.gc-flap-group {
+  display: inline-flex;
+  gap: 2.5px;
+}
+
+.gc-flap {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 22px;
+  border-radius: 3.5px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-accent-200);
+  background: linear-gradient(
+    var(--color-neutral-900) 47%,
+    var(--color-neutral-800) 47%,
+    var(--color-neutral-800) 53%,
+    var(--color-neutral-900) 53%
+  );
+  box-shadow: 0 0 0 1px var(--color-neutral-800);
+  animation: gcFlapSquash 3s linear infinite;
+  position: relative;
+}
+.gc-flap::before {
+  content: '';
+}
+.gc-flap--1 { animation-delay: 0s; }
+.gc-flap--1::before { content: 'J'; animation: gcF1 18s step-end infinite; }
+.gc-flap--2 { animation-delay: 0.07s; }
+.gc-flap--2::before { content: 'F'; animation: gcF2 18s step-end infinite; }
+.gc-flap--3 { animation-delay: 0.14s; }
+.gc-flap--3::before { content: 'K'; animation: gcF3 18s step-end infinite; }

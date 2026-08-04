@@ -1,0 +1,54 @@
+name: Refresh airport route data
+
+on:
+  schedule:
+    # 06:00 UTC on the 1st of each month.
+    - cron: '0 6 1 * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Refresh dataset
+        run: node scripts/trim-data.mjs
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- public/airports.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Never pushes straight to main — opens a reviewable PR instead, so a
+      # monthly upstream data change can't silently land on the live site.
+      - name: Open pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: 'chore: refresh airport route data'
+          title: 'chore: refresh airport route data'
+          body: |
+            Automated monthly refresh of `public/airports.json` from the
+            upstream [airline-route-data](https://github.com/Jonty/airline-route-data)
+            dataset (see `scripts/trim-data.mjs`).
+
+            Review the diff size/shape before merging — this file is served
+            directly to players, so a malformed refresh would break the game.
+          branch: chore/refresh-airport-data
+          delete-branch: true
+          add-paths: public/airports.json

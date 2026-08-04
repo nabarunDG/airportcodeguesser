@@ -1,0 +1,14 @@
+name = "gate-check"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-11-01"
+
+# Created once via `wrangler d1 create gatecheck-leaderboard` — paste the
+# resulting database_id below. Until then, `wrangler pages dev` will still
+# serve the frontend fine; only the /api/* Functions need this binding.
+# Cloudflare Pages' dashboard (Settings → Functions → D1 database bindings)
+# also needs this same binding added manually for Production and Preview —
+# wrangler.toml alone does not configure a deployed Pages project's bindings.
+[[d1_databases]]
+binding = "DB"
+database_name = "gatecheck-leaderboard"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"

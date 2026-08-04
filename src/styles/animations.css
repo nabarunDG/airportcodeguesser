@@ -1,0 +1,15 @@
+/* Keyframes ported from the design prototype's inline <style> block
+   (docs/design-handoff/design/Airport Code Guesser.dc.html). */
+
+@keyframes gcBelt { from { background-position-x: 0; } to { background-position-x: -56px; } }
+@keyframes gcBag { from { left: -90px; } to { left: 110%; } }
+@keyframes gcDrift { from { transform: translateX(-140px); } to { transform: translateX(calc(100vw + 140px)); } }
+@keyframes gcChip { from { opacity: 0; transform: translateY(7px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes gcPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+@keyframes gcFlapSquash { 0%, 93% { transform: scaleY(1); } 96.5% { transform: scaleY(0.15); } 100% { transform: scaleY(1); } }
+
+/* Split-flap letter cycles for the three logo tiles (J-F-K → C-D-G → H-N-D →
+   G-R-U → S-Y-D → D-X-B), stepped so each tile "flips" independently. */
+@keyframes gcF1 { 0% { content: 'J'; } 16.66% { content: 'C'; } 33.33% { content: 'H'; } 50% { content: 'G'; } 66.66% { content: 'S'; } 83.33% { content: 'D'; } 100% { content: 'J'; } }
+@keyframes gcF2 { 0% { content: 'F'; } 16.66% { content: 'D'; } 33.33% { content: 'N'; } 50% { content: 'R'; } 66.66% { content: 'Y'; } 83.33% { content: 'X'; } 100% { content: 'F'; } }
+@keyframes gcF3 { 0% { content: 'K'; } 16.66% { content: 'G'; } 33.33% { content: 'D'; } 50% { content: 'U'; } 66.66% { content: 'D'; } 83.33% { content: 'B'; } 100% { content: 'K'; } }
