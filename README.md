@@ -56,3 +56,19 @@ npm run data:refresh
    automatically.
 
 Every push to `main` auto-deploys from then on — no server to maintain.
+
+## Usage stats (internal, no third-party analytics)
+
+`POST /api/ping` writes anonymous, aggregate-only usage data (unique
+visitors + time on site per UTC day) to D1's `visits` table — no analytics
+script, no PII, reuses the same anonymous player id as the leaderboard. Not
+shown anywhere in the app. To check the numbers:
+
+- **Cloudflare dashboard** — open the `gatecheck-leaderboard` D1 database →
+  Console tab → run SQL directly.
+- **CLI** — `wrangler d1 execute gatecheck-leaderboard --remote --command "SELECT day, COUNT(DISTINCT player_id) AS unique_users, SUM(seconds) AS total_seconds FROM visits GROUP BY day ORDER BY day"`
+- **A file on GitHub** — `.github/workflows/stats-snapshot.yml` runs daily
+  (and on manual dispatch), re-queries D1, and commits the result straight
+  to `main` as `stats/daily-usage.json` — a browsable, versioned history
+  with no dashboard access needed. Requires two repo secrets:
+  `CLOUDFLARE_API_TOKEN` (D1 read access) and `CLOUDFLARE_ACCOUNT_ID`.
