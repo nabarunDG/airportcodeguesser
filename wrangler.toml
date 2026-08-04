@@ -11,4 +11,4 @@ compatibility_date = "2024-11-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "gatecheck-leaderboard"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "a2b0a8e3-da56-4b91-bfc3-c2f793d8378d"
