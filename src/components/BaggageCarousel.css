@@ -29,9 +29,28 @@
   border-radius: 4px 4px 0 0;
   margin: -9px auto 0;
 }
+/* The IATA-style tag printed on each suitcase — same mono stack as the code
+   tiles/split-flap logo elsewhere in the app, so it reads as "airport", not
+   just decoration. Centered over the suitcase body via inset:0 on a
+   position:absolute span, sized/colored per bag for contrast against its
+   own background. */
+.gc-bag-tag {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
 .gc-bag--a { width: 46px; height: 32px; background: var(--color-accent-800); animation-delay: 0s; }
 .gc-bag--a .gc-bag-handle { width: 18px; height: 8px; border: 2px solid var(--color-accent-600); }
+.gc-bag--a .gc-bag-tag { font-size: 9px; color: var(--color-accent-100); }
 .gc-bag--b { width: 38px; height: 26px; background: var(--color-neutral-700); animation-delay: 1.8s; }
 .gc-bag--b .gc-bag-handle { width: 15px; height: 7px; border: 2px solid var(--color-neutral-500); margin-top: -8px; }
+.gc-bag--b .gc-bag-tag { font-size: 8px; color: var(--color-neutral-100); }
 .gc-bag--c { width: 42px; height: 30px; background: var(--color-accent-2-900); animation-delay: 3.4s; }
 .gc-bag--c .gc-bag-handle { width: 16px; height: 7px; border: 2px solid var(--color-accent-2-700); margin-top: -8px; }
+.gc-bag--c .gc-bag-tag { font-size: 8.5px; color: var(--color-accent-2-100); }
