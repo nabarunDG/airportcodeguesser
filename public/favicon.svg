@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#161826"/>
+  <rect x="3" y="3" width="26" height="26" rx="5" fill="#292b31"/>
+  <text x="16" y="23" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="17" font-weight="700" fill="#9184d9" text-anchor="middle">G</text>
+</svg>
