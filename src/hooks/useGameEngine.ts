@@ -9,6 +9,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import type { Airport, ClueKey, Choice, HintKey, LbDir, LbSort, LeaderboardRow, Screen } from '../types';
 import {
   BATCH_SIZE,
+  CITY_REVEAL_COST,
+  HINT_COST,
   IDLE_NUDGE_SECONDS,
   IDLE_SKIP_SECONDS,
   buildBatch,
@@ -25,13 +27,11 @@ import { accumulateTime } from '../lib/timeMetric';
 import { loadUsedToday, saveUsedToday } from '../lib/usedAirportsStore';
 
 interface HintFlags {
-  sorted: boolean;
-  names: boolean;
-  cities: boolean;
   country: boolean;
+  carrierNames: boolean;
+  destNames: boolean;
 }
 interface ClueFlags {
-  dep: boolean;
   car: boolean;
   dest: boolean;
 }
@@ -51,6 +51,7 @@ interface EngineState {
   lastRoundPoints: number;
   clues: ClueFlags;
   hints: HintFlags;
+  revealedCities: number[]; // choice indices whose city has been paid-reveal'd this round
   choices: Choice[];
   fact: string;
   barcode: BarcodeBar[];
@@ -62,8 +63,8 @@ interface EngineState {
   lbDir: LbDir;
 }
 
-const NO_CLUES: ClueFlags = { dep: false, car: false, dest: false };
-const NO_HINTS: HintFlags = { sorted: false, names: false, cities: false, country: false };
+const NO_CLUES: ClueFlags = { car: false, dest: false };
+const NO_HINTS: HintFlags = { country: false, carrierNames: false, destNames: false };
 
 const initialState: EngineState = {
   screen: 'home',
@@ -80,6 +81,7 @@ const initialState: EngineState = {
   lastRoundPoints: 0,
   clues: NO_CLUES,
   hints: NO_HINTS,
+  revealedCities: [],
   choices: [],
   fact: '',
   barcode: [],
@@ -100,6 +102,7 @@ type Action =
   | { type: 'GO_TO_SUMMARY' }
   | { type: 'USE_HINT'; key: HintKey }
   | { type: 'PULL_CLUE'; key: ClueKey }
+  | { type: 'REVEAL_CITY'; idx: number }
   | { type: 'SET_NUDGE'; value: boolean }
   | { type: 'GO_HOME' }
   | { type: 'GO_LEADERBOARD' }
@@ -137,6 +140,7 @@ function reducer(state: EngineState, action: Action): EngineState {
         nudge: false,
         clues: NO_CLUES,
         hints: NO_HINTS,
+        revealedCities: [],
       };
     case 'PICK':
       return {
@@ -176,6 +180,9 @@ function reducer(state: EngineState, action: Action): EngineState {
     case 'PULL_CLUE':
       if (state.clues[action.key]) return state;
       return { ...state, clues: { ...state.clues, [action.key]: true } };
+    case 'REVEAL_CITY':
+      if (state.answered || state.revealedCities.includes(action.idx)) return state;
+      return { ...state, revealedCities: [...state.revealedCities, action.idx] };
     case 'SET_NUDGE':
       if (state.nudge === action.value) return state;
       return { ...state, nudge: action.value };
@@ -219,12 +226,14 @@ function useLazyRef<T>(init: () => T): { current: T } {
 export interface GameEngine {
   state: EngineState;
   currentAirport: Airport | undefined;
+  byCode: Record<string, Airport>;
   hintsUsedThisRound: number;
   batchStartMs: number | null;
   start: () => void;
   pick: (idx: number) => void;
   useHint: (key: HintKey) => void;
   pullClue: (key: ClueKey) => void;
+  revealCity: (idx: number) => void;
   next: () => void;
   goHome: () => void;
   goLeaderboard: () => void;
@@ -251,7 +260,12 @@ export function useGameEngine(
   const batchStartRef = useRef<number | null>(null);
 
   const currentAirport = batchRef.current[state.roundIdx];
-  const hintsUsedThisRound = Object.values(state.hints).filter(Boolean).length;
+  const hintsUsedThisRound = Object.values(state.hints).filter(Boolean).length + state.revealedCities.length;
+  // Boolean hints (country/carrierNames/destNames) each cost HINT_COST; every
+  // per-option city reveal costs CITY_REVEAL_COST — summed for `roundPoints`,
+  // since the two kinds of reveal aren't priced the same.
+  const hintsCostThisRound =
+    Object.values(state.hints).filter(Boolean).length * HINT_COST + state.revealedCities.length * CITY_REVEAL_COST;
 
   const act = useCallback(() => {
     lastActRef.current = Date.now();
@@ -298,14 +312,14 @@ export function useGameEngine(
       act();
       const choice = state.choices[idx];
       if (!choice) return;
-      const points = choice.ok ? roundPoints(hintsUsedThisRound) : 0;
+      const points = choice.ok ? roundPoints(hintsCostThisRound) : 0;
       dispatch({ type: 'PICK', idx, ok: choice.ok, points });
       if (revealTimerRef.current != null) window.clearTimeout(revealTimerRef.current);
       revealTimerRef.current = window.setTimeout(() => {
         dispatch({ type: 'REVEAL' });
       }, ANSWER_REVEAL_DELAY_MS);
     },
-    [act, hintsUsedThisRound, state.answered, state.choices],
+    [act, hintsCostThisRound, state.answered, state.choices],
   );
 
   const useHint = useCallback(
@@ -320,6 +334,14 @@ export function useGameEngine(
     (key: ClueKey) => {
       act();
       dispatch({ type: 'PULL_CLUE', key });
+    },
+    [act],
+  );
+
+  const revealCity = useCallback(
+    (idx: number) => {
+      act();
+      dispatch({ type: 'REVEAL_CITY', idx });
     },
     [act],
   );
@@ -421,12 +443,14 @@ export function useGameEngine(
     () => ({
       state,
       currentAirport,
+      byCode,
       hintsUsedThisRound,
       batchStartMs: batchStartRef.current,
       start,
       pick,
       useHint,
       pullClue,
+      revealCity,
       next,
       goHome,
       goLeaderboard,
@@ -440,6 +464,7 @@ export function useGameEngine(
     [
       state,
       currentAirport,
+      byCode,
       hintsUsedThisRound,
       start,
       // batchStartRef.current is intentionally read fresh each render (see
@@ -447,6 +472,7 @@ export function useGameEngine(
       pick,
       useHint,
       pullClue,
+      revealCity,
       next,
       goHome,
       goLeaderboard,

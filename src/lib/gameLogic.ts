@@ -14,6 +14,7 @@
 import type { Airport, Choice, Continent, Route } from '../types';
 
 export const HINT_COST = 2;
+export const CITY_REVEAL_COST = 1; // per-option "reveal this city" cost — see ChoiceList
 export const MIN_BATCH_ROUTES = 8; // floor to be a batch answer/distractor
 export const MIN_FILL_ROUTES = 20; // floor for random fallback-fill picks
 export const MIN_HUB_ROUTES = 45; // floor to count as a "major hub"
@@ -216,9 +217,9 @@ export function departuresBucket(destCache: DestEntry[]): string {
   return deps >= 300 ? '300+' : `${Math.max(10, Math.floor(deps / 10) * 10)}+`;
 }
 
-/** Round score: 10 pts minus HINT_COST per hint used this round, floored at 2. */
-export function roundPoints(hintsUsedThisRound: number): number {
-  return Math.max(2, 10 - hintsUsedThisRound * HINT_COST);
+/** Round score: 10 pts minus every hint/reveal cost spent this round, floored at 2. */
+export function roundPoints(costSoFar: number): number {
+  return Math.max(2, 10 - costSoFar);
 }
 
 const FF_TIERS = [

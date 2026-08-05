@@ -2,7 +2,6 @@ import type { GameEngine } from '../../hooks/useGameEngine';
 import CodeTiles from './game/CodeTiles';
 import ContextRow from './game/ContextRow';
 import CluePills from './game/CluePills';
-import HintBag from './game/HintBag';
 import ChoiceList from './game/ChoiceList';
 
 interface Props {
@@ -10,7 +9,7 @@ interface Props {
 }
 
 export default function GameScreen({ engine }: Props) {
-  const { state, currentAirport } = engine;
+  const { state, currentAirport, byCode } = engine;
   if (!currentAirport) return null;
 
   return (
@@ -32,16 +31,23 @@ export default function GameScreen({ engine }: Props) {
         <ContextRow airport={currentAirport} showCountry={state.hints.country} />
       </div>
 
-      <CluePills airport={currentAirport} clues={state.clues} hints={state.hints} onPull={engine.pullClue} />
-
-      <HintBag hints={state.hints} disabled={state.answered} onUse={engine.useHint} />
+      <CluePills
+        airport={currentAirport}
+        byCode={byCode}
+        clues={state.clues}
+        hints={state.hints}
+        disabled={state.answered}
+        onPull={engine.pullClue}
+        onUseHint={engine.useHint}
+      />
 
       <ChoiceList
         choices={state.choices}
         answered={state.answered}
         answeredIdx={state.answeredIdx}
-        showCities={state.hints.cities}
+        revealedCities={state.revealedCities}
         onPick={engine.pick}
+        onRevealCity={engine.revealCity}
       />
     </div>
   );

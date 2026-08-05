@@ -1,4 +1,5 @@
 import BaggageCarousel from '../BaggageCarousel';
+import SplitFlapLogo from '../SplitFlapLogo';
 import './HomeScreen.css';
 
 interface Props {
@@ -11,9 +12,7 @@ export default function HomeScreen({ onStart, onGoLeaderboard }: Props) {
     <div className="gc-home">
       <div className="gc-home-inner">
         <div className="gc-home-tiles">
-          <div className="gc-home-tile" style={{ color: 'var(--color-accent)' }}>?</div>
-          <div className="gc-home-tile" style={{ color: 'var(--color-text)' }}>?</div>
-          <div className="gc-home-tile" style={{ color: 'var(--color-neutral-500)' }}>?</div>
+          <SplitFlapLogo size="lg" />
         </div>
         <h1 style={{ fontSize: 34, margin: 0 }}>Name that airport</h1>
         <p style={{ fontSize: 14.5, color: 'var(--color-neutral-400)', margin: 0 }}>
