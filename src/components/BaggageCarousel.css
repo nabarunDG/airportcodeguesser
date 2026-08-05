@@ -15,14 +15,14 @@
   height: 26px;
   background: repeating-linear-gradient(70deg, var(--color-neutral-900) 0 20px, var(--color-neutral-800) 20px 28px);
   background-size: 56px 100%;
-  animation: gcBelt 0.9s linear infinite;
+  animation: gcBelt 2.4s linear infinite;
 }
 
 .gc-bag {
   position: absolute;
   bottom: 24px;
   border-radius: 5px;
-  animation: gcBag 5s linear infinite;
+  animation: gcBag 9s linear infinite;
 }
 .gc-bag-handle {
   border-bottom: none;
@@ -48,9 +48,9 @@
 .gc-bag--a { width: 46px; height: 32px; background: var(--color-accent-800); animation-delay: 0s; }
 .gc-bag--a .gc-bag-handle { width: 18px; height: 8px; border: 2px solid var(--color-accent-600); }
 .gc-bag--a .gc-bag-tag { font-size: 9px; color: var(--color-accent-100); }
-.gc-bag--b { width: 38px; height: 26px; background: var(--color-neutral-700); animation-delay: 1.8s; }
+.gc-bag--b { width: 38px; height: 26px; background: var(--color-neutral-700); animation-delay: 3.2s; }
 .gc-bag--b .gc-bag-handle { width: 15px; height: 7px; border: 2px solid var(--color-neutral-500); margin-top: -8px; }
 .gc-bag--b .gc-bag-tag { font-size: 8px; color: var(--color-neutral-100); }
-.gc-bag--c { width: 42px; height: 30px; background: var(--color-accent-2-900); animation-delay: 3.4s; }
+.gc-bag--c { width: 42px; height: 30px; background: var(--color-accent-2-900); animation-delay: 6.1s; }
 .gc-bag--c .gc-bag-handle { width: 16px; height: 7px; border: 2px solid var(--color-accent-2-700); margin-top: -8px; }
 .gc-bag--c .gc-bag-tag { font-size: 8.5px; color: var(--color-accent-2-100); }

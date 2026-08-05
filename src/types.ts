@@ -31,8 +31,8 @@ export interface Airport {
 
 export type Screen = 'home' | 'game' | 'reveal' | 'summary' | 'leaderboard';
 
-export type ClueKey = 'dep' | 'car' | 'dest';
-export type HintKey = 'sorted' | 'names' | 'cities' | 'country';
+export type ClueKey = 'car' | 'dest';
+export type HintKey = 'country' | 'carrierNames' | 'destNames';
 
 export interface Choice {
   airport: Airport;

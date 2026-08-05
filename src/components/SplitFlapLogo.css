@@ -2,6 +2,16 @@
   display: inline-flex;
   gap: 2.5px;
 }
+.gc-flap-group--lg {
+  gap: 8px;
+}
+.gc-flap-group--lg .gc-flap {
+  width: 54px;
+  height: 70px;
+  border-radius: var(--radius-md);
+  font-size: 38px;
+  box-shadow: var(--shadow-sm);
+}
 
 .gc-flap {
   display: grid;

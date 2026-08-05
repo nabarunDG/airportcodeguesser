@@ -20,17 +20,6 @@
   display: flex;
   gap: 8px;
 }
-.gc-home-tile {
-  width: 58px;
-  height: 74px;
-  display: grid;
-  place-items: center;
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  font-family: var(--font-mono);
-  font-size: 40px;
-}
 .gc-home-actions {
   display: flex;
   flex-direction: column;
