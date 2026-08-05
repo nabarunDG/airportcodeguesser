@@ -4,11 +4,14 @@
 // implementation plan's "order of implementation", step 8).
 //
 // Semantics (matches the design README's "Flight Leaders" section): one
-// submission per fully-completed batch; aggregated per UTC day per home
-// airport — Score = sum of posted scores, Rounds = count of completed
-// batches, PAX = distinct players, Avg = Score/Rounds to 1 decimal.
-import type { LbDir, LbSort, LeaderboardRow } from '../types';
-import { todayUTC } from './gameLogic';
+// submission per fully-completed batch; aggregated per home airport over the
+// current UTC ISO week (Monday–Sunday) — Score = sum of posted scores,
+// Rounds = count of completed batches, PAX = distinct players, Avg =
+// Score/Rounds to 1 decimal. Every submission is still stamped with its exact
+// UTC day (unchanged), so a lightweight same-day "today" stat can be read off
+// the same storage without any schema/shape change — see `TodayStats`.
+import type { LbDir, LbSort, LeaderboardRow, TodayStats } from '../types';
+import { addDaysUTC, todayUTC } from './gameLogic';
 
 export interface ScoreSubmission {
   day: string; // UTC 'YYYY-MM-DD'
@@ -19,7 +22,8 @@ export interface ScoreSubmission {
 }
 
 export interface LeaderboardParams {
-  date: string;
+  weekStart: string; // UTC 'YYYY-MM-DD', Monday — the aggregation window's inclusive start
+  today: string; // UTC 'YYYY-MM-DD' — source date for the `today` stat
   sort: LbSort;
   dir: LbDir;
   playerId: string;
@@ -32,7 +36,7 @@ export interface SubmitResult {
 
 export interface LeaderboardClient {
   submitScore(input: { airport: string; playerId: string; score: number }): Promise<SubmitResult>;
-  getLeaderboard(params: LeaderboardParams): Promise<{ rows: LeaderboardRow[] }>;
+  getLeaderboard(params: LeaderboardParams): Promise<{ rows: LeaderboardRow[]; today: TodayStats }>;
 }
 
 const STORAGE_KEY = 'gatecheck_lb_submissions';
@@ -66,8 +70,12 @@ export const localLeaderboardClient: LeaderboardClient = {
     return { ok: true };
   },
 
-  async getLeaderboard({ date, sort, dir, playerId }) {
-    const rows = readAll().filter((r) => r.day === date);
+  async getLeaderboard({ weekStart, today, sort, dir, playerId }) {
+    const all = readAll();
+    // 'YYYY-MM-DD' strings sort lexicographically = chronologically, so a
+    // plain string range check is enough — no date parsing needed.
+    const weekEnd = addDaysUTC(weekStart, 6);
+    const rows = all.filter((r) => r.day >= weekStart && r.day <= weekEnd);
     const agg = new Map<string, { airport: string; score: number; rounds: number; players: Set<string> }>();
     for (const r of rows) {
       const g = agg.get(r.airport) ?? { airport: r.airport, score: 0, rounds: 0, players: new Set<string>() };
@@ -93,7 +101,13 @@ export const localLeaderboardClient: LeaderboardClient = {
       you: g.players.has(playerId),
     }));
 
-    return { rows: rowsOut };
+    const todayRows = all.filter((r) => r.day === today);
+    const todayStats: TodayStats = {
+      pax: new Set(todayRows.map((r) => r.playerId)).size,
+      points: todayRows.reduce((sum, r) => sum + r.score, 0),
+    };
+
+    return { rows: rowsOut, today: todayStats };
   },
 };
 
@@ -116,15 +130,19 @@ export const apiLeaderboardClient: LeaderboardClient = {
     }
   },
 
-  async getLeaderboard({ date, sort, dir, playerId }) {
+  async getLeaderboard({ weekStart, today, sort, dir, playerId }) {
+    const empty = { rows: [] as LeaderboardRow[], today: { pax: 0, points: 0 } };
     try {
-      const params = new URLSearchParams({ date, sort, dir, playerId });
+      const params = new URLSearchParams({ weekStart, date: today, sort, dir, playerId });
       const res = await fetch(`/api/leaderboard?${params.toString()}`);
-      if (!res.ok) return { rows: [] };
-      const body = (await res.json()) as { rows?: LeaderboardRow[] };
-      return { rows: Array.isArray(body.rows) ? body.rows : [] };
+      if (!res.ok) return empty;
+      const body = (await res.json()) as { rows?: LeaderboardRow[]; today?: TodayStats };
+      return {
+        rows: Array.isArray(body.rows) ? body.rows : [],
+        today: body.today ?? empty.today,
+      };
     } catch {
-      return { rows: [] };
+      return empty;
     }
   },
 };

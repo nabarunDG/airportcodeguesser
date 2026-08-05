@@ -75,6 +75,10 @@ figcaption { font-size: 11px; margin-top: var(--space-1); color: color-mix(in sr
 }
 .input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
 .input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
+/* Placeholders (e.g. "e.g. JFK") shouldn't inherit an input's own
+   text-transform: uppercase — that turns "e.g." into "E.G.", reading like a
+   real value rather than an example. */
+.input::placeholder { text-transform: none; }
 
 /* — cards — */
 .card {

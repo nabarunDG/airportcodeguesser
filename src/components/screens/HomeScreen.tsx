@@ -17,7 +17,7 @@ export default function HomeScreen({ onStart, onGoLeaderboard }: Props) {
         <h1 style={{ fontSize: 34, margin: 0 }}>Name that airport</h1>
         <p style={{ fontSize: 14.5, color: 'var(--color-neutral-400)', margin: 0 }}>
           Read clues and pick the right airport. 10 airport codes per boarding group. No clock, no pressure. Hints
-          cost you −2 points. Score points for your home or current airport!
+          cost you −2 points. Defend your airport's spot — new week, new board.
         </p>
         <div className="gc-home-actions">
           <button className="btn btn-primary btn-block" onClick={onStart} style={{ minHeight: 44, fontSize: 15 }}>

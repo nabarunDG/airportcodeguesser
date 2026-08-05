@@ -51,3 +51,9 @@ export interface LeaderboardRow {
 
 export type LbSort = 'total' | 'avg';
 export type LbDir = 'asc' | 'desc';
+
+/** Same-day activity signal shown alongside the (now weekly) leaderboard — see leaderboardClient.ts. */
+export interface TodayStats {
+  pax: number;
+  points: number;
+}

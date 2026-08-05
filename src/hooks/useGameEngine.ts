@@ -6,7 +6,7 @@
 // as small standalone hooks used directly by the screens that render them —
 // see useWeather/useLocalClock/useLiveDuration.
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
-import type { Airport, ClueKey, Choice, HintKey, LbDir, LbSort, LeaderboardRow, Screen } from '../types';
+import type { Airport, ClueKey, Choice, HintKey, LbDir, LbSort, LeaderboardRow, Screen, TodayStats } from '../types';
 import {
   BATCH_SIZE,
   CITY_REVEAL_COST,
@@ -19,6 +19,7 @@ import {
   makeFact,
   roundPoints,
   todayUTC,
+  weekStartUTC,
   type BarcodeBar,
 } from '../lib/gameLogic';
 import type { LeaderboardClient } from '../lib/leaderboardClient';
@@ -59,9 +60,12 @@ interface EngineState {
   homeErr: string;
   saved: boolean;
   lbRows: LeaderboardRow[];
+  lbToday: TodayStats;
   lbSort: LbSort;
   lbDir: LbDir;
 }
+
+const NO_TODAY_STATS: TodayStats = { pax: 0, points: 0 };
 
 const NO_CLUES: ClueFlags = { car: false, dest: false };
 const NO_HINTS: HintFlags = { country: false, carrierNames: false, destNames: false };
@@ -89,6 +93,7 @@ const initialState: EngineState = {
   homeErr: '',
   saved: false,
   lbRows: [],
+  lbToday: NO_TODAY_STATS,
   lbSort: 'total',
   lbDir: 'desc',
 };
@@ -109,7 +114,7 @@ type Action =
   | { type: 'SET_HOME_INPUT'; value: string }
   | { type: 'SET_HOME_ERR'; value: string }
   | { type: 'SCORE_SAVED' }
-  | { type: 'SET_LB_ROWS'; rows: LeaderboardRow[] }
+  | { type: 'SET_LB_ROWS'; rows: LeaderboardRow[]; today: TodayStats }
   | { type: 'SET_LB_SORT'; sort: LbSort; dir: LbDir };
 
 function reducer(state: EngineState, action: Action): EngineState {
@@ -195,9 +200,11 @@ function reducer(state: EngineState, action: Action): EngineState {
     case 'SET_HOME_ERR':
       return { ...state, homeErr: action.value };
     case 'SCORE_SAVED':
-      return { ...state, saved: true, homeErr: '', screen: 'leaderboard' };
+      // Stays on 'summary' — the leaderboard is already rendered inline
+      // there, so posting a score no longer needs to navigate anywhere.
+      return { ...state, saved: true, homeErr: '' };
     case 'SET_LB_ROWS':
-      return { ...state, lbRows: action.rows };
+      return { ...state, lbRows: action.rows, lbToday: action.today };
     case 'SET_LB_SORT':
       return { ...state, lbSort: action.sort, lbDir: action.dir };
     default:
@@ -372,19 +379,23 @@ export function useGameEngine(
   }, []);
 
   const refreshLeaderboard = useCallback(async () => {
-    const { rows } = await leaderboardClient.getLeaderboard({
-      date: todayUTC(),
+    const { rows, today } = await leaderboardClient.getLeaderboard({
+      weekStart: weekStartUTC(),
+      today: todayUTC(),
       sort: state.lbSort,
       dir: state.lbDir,
       playerId: getPlayerId(),
     });
-    dispatch({ type: 'SET_LB_ROWS', rows });
+    dispatch({ type: 'SET_LB_ROWS', rows, today });
   }, [leaderboardClient, state.lbDir, state.lbSort]);
 
+  // 'summary' loads the board the instant a batch finishes — no click
+  // required — alongside the standalone 'leaderboard' screen (Home's
+  // pre-game "Flight Leaders" entry point).
   useEffect(() => {
-    if (state.screen === 'leaderboard') {
+    if (state.screen === 'leaderboard' || state.screen === 'summary') {
       refreshLeaderboard().catch(() => {
-        dispatch({ type: 'SET_LB_ROWS', rows: [] });
+        dispatch({ type: 'SET_LB_ROWS', rows: [], today: NO_TODAY_STATS });
       });
     }
   }, [state.screen, state.lbSort, state.lbDir, refreshLeaderboard]);
@@ -412,7 +423,13 @@ export function useGameEngine(
       return;
     }
     dispatch({ type: 'SCORE_SAVED' });
-  }, [byCode, leaderboardClient, state.doneRounds, state.homeInput, state.score]);
+    // Refresh right away so the player's own row/rank shows up immediately,
+    // rather than waiting on the screen-driven effect (screen doesn't change
+    // on save anymore — we're already sitting on 'summary').
+    refreshLeaderboard().catch(() => {
+      dispatch({ type: 'SET_LB_ROWS', rows: [], today: NO_TODAY_STATS });
+    });
+  }, [byCode, leaderboardClient, refreshLeaderboard, state.doneRounds, state.homeInput, state.score]);
 
   const sortByTotal = useCallback(() => {
     if (state.lbSort !== 'total') dispatch({ type: 'SET_LB_SORT', sort: 'total', dir: 'desc' });

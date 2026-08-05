@@ -2,7 +2,7 @@ import type { GameEngine } from '../../hooks/useGameEngine';
 import { boardGroup, ffTier, todayDisplay } from '../../lib/gameLogic';
 import { useLiveDuration } from '../../hooks/useLiveDuration';
 import Barcode from './summary/Barcode';
-import HomeAirportForm from './summary/HomeAirportForm';
+import FlightLeadersBoard from './summary/FlightLeadersBoard';
 
 interface Props {
   engine: GameEngine;
@@ -13,7 +13,6 @@ export default function SummaryScreen({ engine }: Props) {
   const batchTime = useLiveDuration(engine.batchStartMs);
   const group = boardGroup(state.score);
   const flightNo = `GC-${state.batchNum}0${state.correct}`;
-  const lockNav = !state.saved && state.homeInput.length < 3;
 
   return (
     <div
@@ -53,25 +52,18 @@ export default function SummaryScreen({ engine }: Props) {
             <span>time on board {batchTime}</span>
           </div>
         </div>
+
+        {/* The leaderboard as the boarding pass's "stub" — same card, torn off
+            rather than a separate screen, so it's impossible to miss after
+            finishing a batch (see the implementation plan's UX rationale). */}
+        <div style={{ borderTop: '1.5px dashed var(--color-divider)', padding: '16px 18px', textAlign: 'left' }}>
+          <FlightLeadersBoard engine={engine} showPrompt />
+        </div>
       </div>
 
-      {!state.saved && (
-        <HomeAirportForm
-          homeInput={state.homeInput}
-          homeErr={state.homeErr}
-          onChange={engine.setHomeInput}
-          onSubmit={() => void engine.saveScore()}
-        />
-      )}
-
-      <div style={{ display: 'flex', gap: 10 }}>
-        <button className="btn btn-primary" disabled={lockNav} onClick={engine.start} style={{ minHeight: 44 }}>
-          New boarding group
-        </button>
-        <button className="btn btn-secondary" disabled={lockNav} onClick={engine.goLeaderboard} style={{ minHeight: 44 }}>
-          Flight Leaders
-        </button>
-      </div>
+      <button className="btn btn-primary" onClick={engine.start} style={{ minHeight: 44, minWidth: 220 }}>
+        New boarding group
+      </button>
     </div>
   );
 }
