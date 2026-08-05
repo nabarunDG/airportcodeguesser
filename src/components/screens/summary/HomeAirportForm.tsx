@@ -10,13 +10,13 @@ export default function HomeAirportForm({ homeInput, homeErr, onChange, onSubmit
     <>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', width: 'min(400px, 100%)' }}>
         <div className="field" style={{ flex: 1 }}>
-          <label>Your home or current airport (required)</label>
+          <label>Add your airport — optional</label>
           <input
             className="input"
             value={homeInput}
             onChange={(e) => onChange(e.target.value)}
             maxLength={3}
-            placeholder="RDU"
+            placeholder="e.g. JFK"
             style={{ textTransform: 'uppercase', fontFamily: 'var(--font-mono)', minHeight: 44 }}
           />
         </div>

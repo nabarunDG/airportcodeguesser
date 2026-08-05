@@ -255,6 +255,44 @@ export function todayUTC(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Adds `days` (may be negative) to a 'YYYY-MM-DD' UTC date string, returning the same format. */
+export function addDaysUTC(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+/** Monday (ISO week start) of the current UTC week, as 'YYYY-MM-DD'. The leaderboard's aggregation window. */
+export function weekStartUTC(): string {
+  const now = new Date();
+  const utcDay = now.getUTCDay(); // 0 = Sun .. 6 = Sat
+  const diffToMonday = (utcDay + 6) % 7; // days since the most recent Monday
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - diffToMonday));
+  return monday.toISOString().slice(0, 10);
+}
+
+/** Sunday (ISO week end) of the current UTC week — the inclusive upper bound paired with weekStartUTC(). */
+export function weekEndUTC(): string {
+  return addDaysUTC(weekStartUTC(), 6);
+}
+
+/** Human-readable week range for the leaderboard header, e.g. "Aug 3–9, 2026". */
+export function weekRangeDisplay(): string {
+  const start = weekStartUTC();
+  const end = weekEndUTC();
+  const [sy, sm, sd] = start.split('-').map(Number);
+  const [, em, ed] = end.split('-').map(Number);
+  const startDt = new Date(Date.UTC(sy, sm - 1, sd));
+  const endDt = new Date(Date.UTC(sy, em - 1, ed));
+  const startStr = startDt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  // Same month: "Aug 3–9, 2026"; different month: "Aug 31 – Sep 6, 2026".
+  const endStr =
+    sm === em
+      ? endDt.toLocaleDateString('en-US', { day: 'numeric', timeZone: 'UTC' })
+      : endDt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return `${startStr}–${endStr}, ${sy}`;
+}
+
 export function todayDisplay(): string {
   return new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
