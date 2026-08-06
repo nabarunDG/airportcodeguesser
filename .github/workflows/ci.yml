@@ -1,0 +1,51 @@
+name: CI
+
+# Runs the same checks Cloudflare Pages will run, plus the ones it won't
+# (lint, tests, test-project typecheck), so a PR can't reach the deploy build
+# with a failure Cloudflare would be the first to find.
+#
+# This exists because it happened: a build that passed locally failed on
+# Cloudflare because the test files needed `@types/node`, which resolved
+# locally only from a stray node_modules in the developer's home directory.
+# `npm ci` on a clean runner is the check that catches that class of bug.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Match the version Cloudflare Pages resolves, so a version-specific
+          # type or engine problem surfaces here first.
+          node-version: 22
+          cache: npm
+
+      # `npm ci` installs strictly from package-lock.json and will not silently
+      # fall back to an ambient parent install — that strictness is the point.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck (app, scripts and tests)
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # Last, and exactly as Cloudflare invokes it, so a green CI run means the
+      # deploy build will get that far too.
+      - name: Build
+        run: npm run build

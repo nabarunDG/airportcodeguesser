@@ -24,7 +24,7 @@ const SOURCE_URL = 'https://raw.githubusercontent.com/Jonty/airline-route-data/m
 
 // Eligibility floor for the *retained* dataset. Deliberately looser than the
 // README's headline "≥8 routes" (that's a runtime gameplay constant — see
-// src/lib/gameLogic.ts's MIN_BATCH_ROUTES/MIN_FILL_ROUTES/MIN_HUB_ROUTES).
+// src/lib/gameLogic.ts's MIN_BATCH_ROUTES/MIN_FILL_ROUTES).
 // ≥3 matches what the prototype's own `this.all` actually retains, and is
 // needed so small airports can still work as home-airport leaderboard entries
 // and as route-lookup targets for fun facts, even though they'll never be
@@ -35,6 +35,20 @@ const MIN_RETAINED_ROUTES = 3;
 // expected (e.g. a truncated response, or the schema changed), bail instead
 // of committing a broken dataset.
 const MIN_PLAUSIBLE_COUNT = 500;
+
+const CONTINENTS = ['NA', 'EU', 'AS', 'SA', 'AF', 'OC'];
+
+// A handful of source records have a null/blank `continent`. That matters more
+// than it looks: buildBatch() guarantees one slot per continent, so an airport
+// with no continent can never win a guaranteed slot (see src/lib/gameLogic.ts).
+// Most are recoverable from their own country — see backfillContinents() —
+// which leaves only countries that have no other airport in the dataset to
+// vote. Those need an explicit answer; anything not covered here is reported
+// by the run so this list can be extended after a refresh.
+const COUNTRY_CONTINENT_FALLBACK = {
+  AO: 'AF', // Angola — NBJ is its only entry
+  MD: 'EU', // Republic of Moldova — RMO is its only entry
+};
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'public', 'airports.json');
@@ -76,6 +90,38 @@ function trimAirport(a) {
   };
 }
 
+/**
+ * Fills in missing `continent` values in place. Each gap is resolved by
+ * majority vote among the other airports in the same country (self-healing:
+ * no country list to maintain as the source data shifts), falling back to
+ * COUNTRY_CONTINENT_FALLBACK for countries with no other entry. Returns the
+ * IATA codes it could not resolve so the caller can report them.
+ */
+function backfillContinents(airports) {
+  const votesByCountry = new Map();
+  for (const a of airports) {
+    if (!CONTINENTS.includes(a.continent)) continue;
+    const votes = votesByCountry.get(a.country_code) ?? new Map();
+    votes.set(a.continent, (votes.get(a.continent) ?? 0) + 1);
+    votesByCountry.set(a.country_code, votes);
+  }
+
+  const unresolved = [];
+  let filled = 0;
+  for (const a of airports) {
+    if (CONTINENTS.includes(a.continent)) continue;
+    const votes = votesByCountry.get(a.country_code);
+    const winner = votes ? [...votes.entries()].sort((x, y) => y[1] - x[1])[0][0] : COUNTRY_CONTINENT_FALLBACK[a.country_code];
+    if (winner) {
+      a.continent = winner;
+      filled++;
+    } else {
+      unresolved.push(`${a.iata} (${a.country} / ${a.country_code})`);
+    }
+  }
+  return { filled, unresolved };
+}
+
 async function main() {
   console.log(`Fetching ${SOURCE_URL} …`);
   const res = await fetch(SOURCE_URL);
@@ -97,6 +143,16 @@ async function main() {
   }
 
   const trimmed = eligible.map(trimAirport).sort((a, b) => (a.iata < b.iata ? -1 : 1));
+
+  const { filled, unresolved } = backfillContinents(trimmed);
+  console.log(`Backfilled continent for ${filled} airport(s) with a missing value`);
+  if (unresolved.length) {
+    console.warn(
+      `WARNING: ${unresolved.length} airport(s) still have no continent and can never win a guaranteed ` +
+        `per-continent batch slot. Add their country to COUNTRY_CONTINENT_FALLBACK in this script:\n  ` +
+        unresolved.join('\n  '),
+    );
+  }
 
   // Minified on purpose: this file ships as a static asset fetched directly
   // by the browser (see note above), so shaving whitespace shaves real bytes

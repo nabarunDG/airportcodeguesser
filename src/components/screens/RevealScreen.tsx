@@ -1,4 +1,5 @@
 import type { GameEngine } from '../../hooks/useGameEngine';
+import PassportStamp from '../PassportStamp';
 import CockpitDial from './reveal/CockpitDial';
 
 interface Props {
@@ -16,6 +17,7 @@ export default function RevealScreen({ engine }: Props) {
   const verdictColor = verdictOk ? 'var(--color-accent-100)' : 'var(--color-neutral-200)';
 
   const pts = state.lastRoundPoints;
+  const stamp = state.lastRoundStamp;
   const ptsLine = state.timedOut
     ? 'Round skipped — 0 pts'
     : pts > 0
@@ -71,13 +73,20 @@ export default function RevealScreen({ engine }: Props) {
         <span>{verdict}</span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 40, color: 'var(--color-accent)' }}>{currentAirport.iata}</div>
-        <h2 style={{ fontSize: 26, margin: 0 }}>{currentAirport.name}</h2>
-        <p style={{ fontSize: 14, color: 'var(--color-neutral-400)', margin: 0 }}>
-          {currentAirport.city_name} · {currentAirport.country}
-        </p>
-        <p style={{ fontSize: 14, margin: '6px 0 0', color: ptsColor }}>{ptsLine}</p>
+      {/* The stamp sits beside the airport identity on wide screens and wraps
+          under it on narrow ones, rather than displacing the score line. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 40, color: 'var(--color-accent)' }}>{currentAirport.iata}</div>
+          <h2 style={{ fontSize: 26, margin: 0 }}>{currentAirport.name}</h2>
+          <p style={{ fontSize: 14, color: 'var(--color-neutral-400)', margin: 0 }}>
+            {currentAirport.city_name} · {currentAirport.country}
+          </p>
+          <p style={{ fontSize: 14, margin: '6px 0 0', color: ptsColor }}>{ptsLine}</p>
+        </div>
+        {/* Only a country's first stamp of the day gets the press animation —
+            across ten rounds the flourish would otherwise wear thin. */}
+        {stamp && <PassportStamp stamp={stamp} animate={stamp.firstVisit} width={112} />}
       </div>
 
       <div className="card elev-sm" style={{ maxWidth: 380, width: '100%', textAlign: 'left' }}>

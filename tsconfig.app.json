@@ -20,5 +20,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  // Tests live alongside the code they cover but are NOT part of the browser
+  // app: they read public/airports.json off disk with node:fs, which has no
+  // business resolving in a bundle that ships to a browser. They get their own
+  // project (tsconfig.test.json) with node types.
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

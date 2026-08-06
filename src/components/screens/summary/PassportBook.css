@@ -1,0 +1,236 @@
+/* The passport is a physical prop, so it carries its own materials — navy
+   board, gold foil, cream paper — rather than Nocturne's surfaces. Same
+   licence a real boarding pass would have inside a dark app.
+
+   It is deliberately a *transition*, not a block: the summary already gives
+   its permanent space to the boarding pass and Flight Leaders, and a spread
+   this tall would push the leaderboard past two phone screens. So it opens
+   over the screen, holds while the stamps land, and folds away into the
+   compact passport row. */
+
+.gc-pp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(10, 11, 20, 0.72);
+  animation: gcPpFadeIn 220ms ease-out both;
+}
+.gc-pp-backdrop.gc-pp-closing {
+  animation: gcPpFadeOut 320ms ease-in both;
+}
+@keyframes gcPpFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes gcPpFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.gc-pp-book {
+  position: relative;
+  width: min(640px, 100%);
+  perspective: 1600px;
+  perspective-origin: 10% 50%;
+}
+/* Folding away: the whole book shrinks toward the passport row it collapses into. */
+.gc-pp-closing .gc-pp-book {
+  animation: gcPpFold 320ms cubic-bezier(0.4, 0, 0.7, 0.2) both;
+}
+@keyframes gcPpFold {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.72) translateY(38vh); }
+}
+
+.gc-pp-spread {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: 4px 9px 9px 4px;
+  overflow: hidden;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateY(10px);
+  animation: gcPpSpreadIn 420ms ease-out 360ms both;
+}
+@keyframes gcPpSpreadIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.gc-pp-page {
+  background:
+    repeating-linear-gradient(58deg, rgba(58, 62, 96, 0.045) 0 0.5px, transparent 0.5px 5px),
+    repeating-radial-gradient(circle at 26% 118%, rgba(58, 62, 96, 0.05) 0 1px, transparent 1px 8px),
+    linear-gradient(157deg, #e9e7dc 0%, #dedbcd 100%);
+  padding: 13px 15px;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gc-pp-page-l {
+  border-right: 1px solid rgba(58, 62, 96, 0.16);
+}
+.gc-pp-hd {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 8.5px;
+  letter-spacing: 0.15em;
+  font-weight: 640;
+  color: #4d5175;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(58, 62, 96, 0.16);
+  padding-bottom: 7px;
+}
+.gc-pp-holder {
+  display: flex;
+  gap: 13px;
+}
+.gc-pp-photo {
+  width: 60px;
+  height: 72px;
+  flex: none;
+  border: 1px solid rgba(58, 62, 96, 0.3);
+  border-radius: 2px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.4);
+}
+.gc-pp-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.gc-pp-fields > div {
+  display: flex;
+  flex-direction: column;
+}
+.gc-pp-l {
+  font-size: 7.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #6d719a;
+  font-weight: 620;
+}
+.gc-pp-v {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #3a3e60;
+  font-variant-numeric: tabular-nums;
+}
+.gc-pp-mrz {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  line-height: 1.55;
+  color: #3a3e60;
+  word-break: break-all;
+  opacity: 0.7;
+  border-top: 1px solid rgba(58, 62, 96, 0.16);
+  padding-top: 7px;
+}
+
+/* Stamps are absolutely placed so they clip each other at their own angles.
+   Three pairs overlap on purpose and the rest breathe — a page where
+   everything overlaps is as artificial as one where nothing does. */
+/* Tall enough that a die placed at the lowest SPOT (62%) still clears the
+   bottom edge — the stamps are absolutely positioned by percentage, so the
+   box has to reserve the room itself. */
+.gc-pp-field {
+  position: relative;
+  flex: 1;
+  min-height: 250px;
+}
+.gc-pp-field > span {
+  position: absolute;
+}
+
+.gc-pp-cover {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(148deg, #232a5e 0%, #161a3f 56%, #1d2350 100%);
+  border-radius: 5px 10px 10px 5px;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.52);
+  display: grid;
+  place-items: center;
+  color: #c9a961;
+  animation: gcPpCoverOpen 620ms cubic-bezier(0.62, 0.02, 0.34, 1) both;
+}
+@keyframes gcPpCoverOpen {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(-158deg); }
+}
+.gc-pp-cover-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.gc-pp-cover-t {
+  font-size: 16px;
+  letter-spacing: 0.34em;
+  font-weight: 620;
+}
+.gc-pp-cover-s {
+  font-size: 8.5px;
+  letter-spacing: 0.26em;
+  opacity: 0.75;
+}
+
+.gc-pp-close {
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  color: var(--color-accent-200);
+  background: transparent;
+  border: 1px solid var(--color-accent-300);
+  border-radius: 20px;
+  padding: 7px 18px;
+  min-height: 36px;
+  margin: 16px auto 0;
+  display: block;
+}
+.gc-pp-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 620px) {
+  .gc-pp-spread {
+    grid-template-columns: 1fr;
+  }
+  .gc-pp-page-l {
+    border-right: 0;
+    border-bottom: 1px solid rgba(58, 62, 96, 0.16);
+    min-height: 0;
+  }
+  .gc-pp-page {
+    min-height: 0;
+  }
+  .gc-pp-field {
+    min-height: 264px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-pp-cover {
+    animation: none;
+    transform: rotateY(-158deg);
+  }
+  .gc-pp-spread {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .gc-pp-closing .gc-pp-book {
+    animation: none;
+    opacity: 0;
+  }
+}

@@ -42,6 +42,11 @@
   --color-accent-2-800: #423e5d;
   --color-accent-2-900: #2b293a;
 
+  /* Passport-stamp inks live with their dies, not here: each of the six
+     templates in src/lib/stampTemplates.ts carries its own ink pair (a true
+     ink for paper, a lifted variant of the same hue for the dark boarding
+     pass), because "which ink" is a property of the die, not of the theme. */
+
   --color-section: #262a60;
   --color-section-glow: #353b80;
   --color-section-ghost: #4c5397;
