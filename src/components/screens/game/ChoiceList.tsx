@@ -14,8 +14,8 @@ export default function ChoiceList({ choices, answered, answeredIdx, revealedCit
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
       <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>
-        Stuck? Tap <span style={{ color: 'var(--color-neutral-400)' }}>City</span> beside an option to see where it is,
-        for −{CITY_REVEAL_COST} pt.
+        Stuck? Tap <span style={{ color: 'var(--color-neutral-400)' }}>City hint</span> beside an option to see where it
+        is, for −{CITY_REVEAL_COST} pt.
       </div>
       {choices.map((c, i) => {
         const isPicked = answeredIdx === i;
@@ -73,13 +73,13 @@ export default function ChoiceList({ choices, answered, answeredIdx, revealedCit
             {!revealed && !answered && (
               <button
                 onClick={() => onRevealCity(i)}
-                aria-label={`Reveal the city for ${c.airport.name}, costs ${CITY_REVEAL_COST} point`}
+                aria-label={`City hint for ${c.airport.name}, costs ${CITY_REVEAL_COST} point`}
                 style={{
                   font: 'inherit',
                   fontSize: 11,
                   cursor: 'pointer',
                   flex: 'none',
-                  width: 52,
+                  width: 72,
                   color: 'var(--color-neutral-400)',
                   background: 'transparent',
                   border: '1px solid var(--color-divider)',
@@ -88,10 +88,15 @@ export default function ChoiceList({ choices, answered, answeredIdx, revealedCit
                   whiteSpace: 'nowrap',
                 }}
               >
-                City
+                City hint
                 <span style={{ display: 'block', fontSize: 9.5, color: 'var(--color-neutral-600)' }}>−{CITY_REVEAL_COST}</span>
               </button>
             )}
+            {/* Hold the gutter open on a row whose hint is already spent, so
+                using one doesn't leave that option wider than its neighbours.
+                Once answered every row drops the gutter together, so they stay
+                aligned either way. */}
+            {!answered && revealed && <div aria-hidden="true" style={{ flex: 'none', width: 72 }} />}
           </div>
         );
       })}

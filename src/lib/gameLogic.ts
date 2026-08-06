@@ -335,15 +335,26 @@ const FF_TIERS: ReadonlyArray<readonly [number, string]> = [
   [0, 'Standby'],
 ];
 
-/** Frequent Flyer status tier for a batch score (0-100). */
-export function ffTier(score: number): string {
-  const tier = FF_TIERS.find(([min]) => score >= min);
-  return (tier ?? FF_TIERS[FF_TIERS.length - 1])[1];
+/** Index into FF_TIERS — 0 is the top tier. The single source of truth for both status and boarding group. */
+function ffTierIndex(score: number): number {
+  const i = FF_TIERS.findIndex(([min]) => score >= min);
+  return i === -1 ? FF_TIERS.length - 1 : i;
 }
 
-/** Boarding group: 90-100 pts boards Group 1, worse scores board later groups. */
+/** Frequent Flyer status tier for a batch score (0-100). */
+export function ffTier(score: number): string {
+  return FF_TIERS[ffTierIndex(score)][1];
+}
+
+/**
+ * Boarding group 1-10, derived from the Frequent Flyer tier rather than from
+ * the score directly, so the two can never disagree on the same pass: a
+ * Million Miler boards Group 1, Standby boards Group 10. Previously this was
+ * its own decade-based formula, which after the tier recalibration could print
+ * e.g. "Middle Seat" beside "GROUP 5".
+ */
 export function boardGroup(score: number): number {
-  return Math.max(1, 10 - Math.floor(score / 10));
+  return ffTierIndex(score) + 1;
 }
 
 export function fmtDur(totalSeconds: number): string {

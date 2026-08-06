@@ -17,6 +17,7 @@ import {
   HUB_FLOOR_MIN,
   MIN_BATCH_ROUTES,
   MIN_FILL_ROUTES,
+  boardGroup,
   buildBatch,
   continentHubFloors,
   ffTier,
@@ -227,6 +228,35 @@ describe('ffTier', () => {
       expect(widths[i], `band ${i} vs ${i - 1}: ${widths.join(',')}`).toBeLessThanOrEqual(widths[i - 1]);
     }
     expect(widths[widths.length - 1]).toBeLessThan(widths[0]);
+  });
+
+  it('keeps the boarding group locked to the tier', () => {
+    // One source of truth: the pass shows both, so "Middle Seat · GROUP 5"
+    // would be a visible contradiction.
+    expect(boardGroup(100)).toBe(1); // Million Miler
+    expect(boardGroup(98)).toBe(1);
+    expect(boardGroup(97)).toBe(2); // Diamond
+    expect(boardGroup(49)).toBe(10); // Standby
+    expect(boardGroup(0)).toBe(10);
+
+    // Group must change exactly when the tier does, and never go backwards.
+    let prevTier = ffTier(0);
+    let prevGroup = boardGroup(0);
+    for (let s = 1; s <= 100; s++) {
+      const tier = ffTier(s);
+      const group = boardGroup(s);
+      expect(tier === prevTier, `score ${s}: tier/group changed out of step`).toBe(group === prevGroup);
+      expect(group).toBeLessThanOrEqual(prevGroup);
+      prevTier = tier;
+      prevGroup = group;
+    }
+  });
+
+  it('spans the full range of boarding groups', () => {
+    const groups = new Set(Array.from({ length: 101 }, (_, s) => boardGroup(s)));
+    expect(Math.min(...groups)).toBe(1);
+    expect(Math.max(...groups)).toBe(10);
+    expect(groups.size).toBe(10);
   });
 
   it('names a tier for every reachable score, in order', () => {
