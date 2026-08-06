@@ -81,9 +81,15 @@ export default function FlightLeadersBoard({ engine, showPrompt }: Props) {
               <td style={{ textAlign: 'center', color: 'var(--color-neutral-500)', fontVariantNumeric: 'tabular-nums' }}>{r.rank}</td>
               <td>
                 <span style={{ fontFamily: 'var(--font-mono)' }}>{r.airport}</span>
+                {/* A check reads as "this is the one you posted" without the
+                    weight of a filled tag beside every other row's bare code. */}
                 {r.you && (
-                  <span className="tag tag-accent" style={{ marginLeft: 8, fontSize: 9.5 }}>
-                    YOURS
+                  <span
+                    aria-label="the airport you posted"
+                    title="The airport you posted"
+                    style={{ marginLeft: 7, color: 'var(--color-accent)', fontSize: 12 }}
+                  >
+                    ✓
                   </span>
                 )}
               </td>
