@@ -197,6 +197,41 @@ describe('buildBatch distribution', () => {
   });
 });
 
+describe('destination names', () => {
+  const DEST_NAMES: Record<string, string> = JSON.parse(
+    readFileSync(path.join(__dirname, '..', '..', 'public', 'destination-names.json'), 'utf8'),
+  ) as Record<string, string>;
+  const byCode = Object.fromEntries(ALL.map((a) => [a.iata, a]));
+  const cityOf = (code: string) => byCode[code]?.city_name ?? DEST_NAMES[code];
+
+  it('can name every destination of every airport', () => {
+    // The hint reads a destination's city out of the dataset, but most
+    // destinations of a small regional airport are themselves too small to be
+    // retained — Tarawa could name 4 of its 20 before this map existed.
+    const unnameable: string[] = [];
+    for (const a of ALL) {
+      for (const r of a.routes) if (!cityOf(r.iata)) unnameable.push(`${a.iata}→${r.iata}`);
+    }
+    expect(unnameable.slice(0, 10)).toEqual([]);
+  });
+
+  it('covers the airports that were worst affected', () => {
+    for (const code of ['TRW', 'ADQ', 'SUV', 'BET']) {
+      const a = byCode[code];
+      expect(a, `${code} missing from dataset`).toBeDefined();
+      const named = a.routes.filter((r) => cityOf(r.iata)).length;
+      expect(named, code).toBe(a.routes.length);
+    }
+  });
+
+  it('does not duplicate what the dataset already carries', () => {
+    // The map is a supplement, not a second copy — every key must be a code
+    // that is NOT a retained airport.
+    const dupes = Object.keys(DEST_NAMES).filter((code) => byCode[code]);
+    expect(dupes).toEqual([]);
+  });
+});
+
 describe('ffTier', () => {
   it('puts everything under half marks in Standby', () => {
     // Deliberately the widest band: scores bunch high, so a decade-per-tier

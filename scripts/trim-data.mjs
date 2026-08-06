@@ -52,6 +52,9 @@ const COUNTRY_CONTINENT_FALLBACK = {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'public', 'airports.json');
+// Cities for destinations that exist only as route targets, never as retained
+// airports — see buildDestinationNames().
+const DEST_NAMES_PATH = path.join(__dirname, '..', 'public', 'destination-names.json');
 
 function isEligible(a) {
   return Boolean(
@@ -122,6 +125,38 @@ function backfillContinents(airports) {
   return { filled, unresolved };
 }
 
+/**
+ * Cities for every destination code that the trimmed dataset can't name itself.
+ *
+ * A retained airport's routes point at plenty of airports too small to be
+ * retained (MIN_RETAINED_ROUTES), and the "destination names" hint looks each
+ * one up in the dataset — so it silently fell back to a bare code for ~3.8% of
+ * all route targets. That average hides the real problem: the shortfall lands
+ * on exactly the regional airports whose routes are all small, where the hint
+ * is most needed. Tarawa could name 4 of its 20 destinations, Kodiak 1 of 16.
+ *
+ * ~1,600 codes, ~26 KB — cheap enough to ship as its own small asset rather
+ * than lowering the retention floor and dragging in every tiny airport's full
+ * route list.
+ */
+function buildDestinationNames(source, retained) {
+  const have = new Set(retained.map((a) => a.iata));
+  const names = {};
+  const bySourceIata = new Map();
+  for (const a of source) {
+    if (a && typeof a.iata === 'string') bySourceIata.set(a.iata, a);
+  }
+  for (const a of retained) {
+    for (const r of a.routes) {
+      if (have.has(r.iata) || names[r.iata]) continue;
+      const dest = bySourceIata.get(r.iata);
+      const city = dest?.city_name || dest?.name;
+      if (city) names[r.iata] = city;
+    }
+  }
+  return names;
+}
+
 async function main() {
   console.log(`Fetching ${SOURCE_URL} …`);
   const res = await fetch(SOURCE_URL);
@@ -161,6 +196,10 @@ async function main() {
   // there's no readability trade-off worth keeping for the monthly refresh PR.
   await writeFile(OUT_PATH, JSON.stringify(trimmed), 'utf8');
   console.log(`Wrote ${trimmed.length} airports to ${OUT_PATH}`);
+
+  const destNames = buildDestinationNames(all, trimmed);
+  await writeFile(DEST_NAMES_PATH, JSON.stringify(destNames), 'utf8');
+  console.log(`Wrote ${Object.keys(destNames).length} destination city names to ${DEST_NAMES_PATH}`);
 }
 
 main().catch((err) => {

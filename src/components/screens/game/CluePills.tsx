@@ -1,4 +1,5 @@
 import { useMemo, type CSSProperties } from 'react';
+import { useDestinationNames } from '../../../hooks/useDestinationNames';
 import type { Airport, ClueKey, HintKey } from '../../../types';
 import {
   CARRIER_DISPLAY_CAP,
@@ -47,6 +48,7 @@ const hintPillStyle = (done: boolean, disabled: boolean): CSSProperties => ({
 });
 
 export default function CluePills({ airport, byCode, clues, hints, countryHintFree, disabled, onPull, onUseHint }: Props) {
+  const destNames = useDestinationNames();
   // Raw data is memoized per-airport only — the carrier shuffle order must
   // stay stable for the whole round; the dest cache is cheap and
   // deterministic, so it's fine to recompute it every render.
@@ -113,10 +115,14 @@ export default function CluePills({ airport, byCode, clues, hints, countryHintFr
       {clues.dest && (
         <div style={{ animation: 'gcChip 0.35s ease', display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
           {visibleDests.map((d) => {
-            const dest = byCode[d.code];
+            // Most destinations of a small regional airport are themselves too
+            // small to be in the dataset, so the hint used to show a bare code
+            // for them — Tarawa could name 4 of its 20. destNames covers the
+            // rest (see loadDestinationNames).
+            const city = byCode[d.code]?.city_name ?? destNames[d.code];
             return (
               <span key={d.code} className="tag tag-accent-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                {hints.destNames && dest ? `${d.code} ${dest.city_name}` : d.code}
+                {hints.destNames && city ? `${d.code} ${city}` : d.code}
               </span>
             );
           })}
