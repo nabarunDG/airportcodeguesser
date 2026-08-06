@@ -28,13 +28,11 @@ import {
   IDLE_SKIP_SECONDS,
   MIN_FILL_ROUTES,
   buildBatch,
-  makeBarcode,
   makeChoices,
   makeFact,
   roundPoints,
   todayUTC,
   weekStartUTC,
-  type BarcodeBar,
 } from '../lib/gameLogic';
 import { stampSlots } from '../lib/stampTemplates';
 import type { LeaderboardClient } from '../lib/leaderboardClient';
@@ -74,7 +72,6 @@ interface EngineState {
   revealedCities: number[]; // choice indices whose city has been paid-reveal'd this round
   choices: Choice[];
   fact: string;
-  barcode: BarcodeBar[];
   homeInput: string;
   homeErr: string;
   saved: boolean;
@@ -110,7 +107,6 @@ const initialState: EngineState = {
   revealedCities: [],
   choices: [],
   fact: '',
-  barcode: [],
   homeInput: '',
   homeErr: '',
   saved: false,
@@ -121,7 +117,7 @@ const initialState: EngineState = {
 };
 
 type Action =
-  | { type: 'START_BATCH'; barcode: BarcodeBar[] }
+  | { type: 'START_BATCH' }
   | { type: 'START_ROUND'; idx: number; choices: Choice[]; fact: string }
   | { type: 'PICK'; idx: number; ok: boolean; points: number; stamp: StampRecord | null; now: number }
   | { type: 'REVEAL' }
@@ -155,7 +151,6 @@ function reducer(state: EngineState, action: Action): EngineState {
         lastRoundStamp: null,
         stamps: [],
         batchEndMs: null,
-        barcode: action.barcode,
       };
     case 'START_ROUND':
       return {
@@ -347,7 +342,7 @@ export function useGameEngine(
     saveUsedToday(usedRef.current);
     batchRef.current = batch;
     batchStartRef.current = Date.now();
-    dispatch({ type: 'START_BATCH', barcode: makeBarcode() });
+    dispatch({ type: 'START_BATCH' });
     startRound(0);
     // `usedRef` is a stable object identity across renders (see useLazyRef)
     // — included for accuracy, but it never actually changes.

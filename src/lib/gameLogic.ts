@@ -309,27 +309,52 @@ export function roundPoints(costSoFar: number): number {
   return Math.max(2, 10 - costSoFar);
 }
 
-const FF_TIERS = [
-  'Standby',
-  'Middle Seat',
-  'Basic Economy',
-  'Main Cabin',
-  'Extra Legroom',
-  'Silver Wings',
-  'Gold Wings',
-  'Platinum',
-  'Diamond',
-  'Million Miler',
+/**
+ * Frequent Flyer tiers as [minimum score, name], highest first.
+ *
+ * Originally one tier per decade of score, which distributed badly in practice:
+ * real scores bunch at the top (a player who knows the codes takes 10 pts a
+ * round and only spends hints when stuck), so most batches landed in the top
+ * two or three tiers and Million Miler stopped meaning anything.
+ *
+ * Recalibrated so Standby absorbs everything below half marks, and the nine
+ * tiers above it get progressively narrower — 8 points wide at the bottom
+ * down to 3 at the top. Million Miler now needs 98, which is at most a couple
+ * of city reveals across ten rounds.
+ */
+const FF_TIERS: ReadonlyArray<readonly [number, string]> = [
+  [98, 'Million Miler'],
+  [93, 'Diamond'],
+  [88, 'Platinum'],
+  [83, 'Gold Wings'],
+  [78, 'Silver Wings'],
+  [72, 'Extra Legroom'],
+  [65, 'Main Cabin'],
+  [58, 'Basic Economy'],
+  [50, 'Middle Seat'],
+  [0, 'Standby'],
 ];
 
-/** Frequent Flyer status tier, by decade of batch score (0-100). */
-export function ffTier(score: number): string {
-  return FF_TIERS[Math.min(FF_TIERS.length - 1, Math.floor(score / 10))];
+/** Index into FF_TIERS — 0 is the top tier. The single source of truth for both status and boarding group. */
+function ffTierIndex(score: number): number {
+  const i = FF_TIERS.findIndex(([min]) => score >= min);
+  return i === -1 ? FF_TIERS.length - 1 : i;
 }
 
-/** Boarding group: 90-100 pts boards Group 1, worse scores board later groups. */
+/** Frequent Flyer status tier for a batch score (0-100). */
+export function ffTier(score: number): string {
+  return FF_TIERS[ffTierIndex(score)][1];
+}
+
+/**
+ * Boarding group 1-10, derived from the Frequent Flyer tier rather than from
+ * the score directly, so the two can never disagree on the same pass: a
+ * Million Miler boards Group 1, Standby boards Group 10. Previously this was
+ * its own decade-based formula, which after the tier recalibration could print
+ * e.g. "Middle Seat" beside "GROUP 5".
+ */
 export function boardGroup(score: number): number {
-  return Math.max(1, 10 - Math.floor(score / 10));
+  return ffTierIndex(score) + 1;
 }
 
 export function fmtDur(totalSeconds: number): string {
@@ -382,19 +407,6 @@ export function weekRangeDisplay(): string {
 
 export function todayDisplay(): string {
   return new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-}
-
-export interface BarcodeBar {
-  w: string;
-  g: string;
-}
-
-/** A randomized boarding-pass barcode, regenerated once per batch. */
-export function makeBarcode(count = 52): BarcodeBar[] {
-  return Array.from({ length: count }, () => ({
-    w: `${1 + Math.floor(Math.random() * 3)}px`,
-    g: `${1 + Math.floor(Math.random() * 4)}px`,
-  }));
 }
 
 /** Cockpit-dial needle rotation in degrees, -90 (0 pts) to +90 (100 pts). */

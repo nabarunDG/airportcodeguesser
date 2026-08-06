@@ -14,7 +14,8 @@ export default function ChoiceList({ choices, answered, answeredIdx, revealedCit
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
       <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>
-        Stuck? Reveal an option's city for −{CITY_REVEAL_COST} pt.
+        Stuck? Tap <span style={{ color: 'var(--color-neutral-400)' }}>City hint</span> beside an option to see where it
+        is, for −{CITY_REVEAL_COST} pt.
       </div>
       {choices.map((c, i) => {
         const isPicked = answeredIdx === i;
@@ -34,14 +35,20 @@ export default function ChoiceList({ choices, answered, answeredIdx, revealedCit
           }
         }
         return (
-          <div key={c.airport.iata} style={{ position: 'relative' }}>
+          // Side by side, not stacked. The hint used to be absolutely
+          // positioned on top of the answer button, so its tap target sat
+          // inside the answer's — right under where a right-handed thumb
+          // rests — and picking an option could spend a point instead. As
+          // siblings with a gap between them, the two targets never overlap.
+          <div key={c.airport.iata} style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
             <button
               onClick={() => onPick(i)}
               style={{
                 font: 'inherit',
                 textAlign: 'left',
                 cursor: 'pointer',
-                width: '100%',
+                flex: 1,
+                minWidth: 0,
                 minHeight: 52,
                 padding: '12px 16px',
                 borderRadius: 'var(--radius-md)',
@@ -51,11 +58,12 @@ export default function ChoiceList({ choices, answered, answeredIdx, revealedCit
                 opacity,
                 display: 'flex',
                 flexDirection: 'column',
+                justifyContent: 'center',
                 gap: 2,
                 transition: 'border-color 0.15s, background 0.15s',
               }}
             >
-              <span style={{ fontSize: 15, paddingRight: revealed || answered ? 0 : 92 }}>{c.airport.name}</span>
+              <span style={{ fontSize: 15 }}>{c.airport.name}</span>
               {revealed && (
                 <span style={{ fontSize: 12, color: 'var(--color-accent-300)', animation: 'gcChip 0.35s ease' }}>
                   {c.airport.city_name}, {c.airport.country}
@@ -64,28 +72,31 @@ export default function ChoiceList({ choices, answered, answeredIdx, revealedCit
             </button>
             {!revealed && !answered && (
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRevealCity(i);
-                }}
+                onClick={() => onRevealCity(i)}
+                aria-label={`City hint for ${c.airport.name}, costs ${CITY_REVEAL_COST} point`}
                 style={{
-                  position: 'absolute',
-                  top: 10,
-                  right: 12,
                   font: 'inherit',
-                  fontSize: 10.5,
+                  fontSize: 11,
                   cursor: 'pointer',
-                  color: 'var(--color-accent)',
-                  background: 'var(--color-surface)',
-                  border: '1px solid var(--color-accent)',
-                  borderRadius: 14,
-                  padding: '4px 9px',
+                  flex: 'none',
+                  width: 72,
+                  color: 'var(--color-neutral-400)',
+                  background: 'transparent',
+                  border: '1px solid var(--color-divider)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 0,
                   whiteSpace: 'nowrap',
                 }}
               >
-                Reveal city −{CITY_REVEAL_COST}
+                City hint
+                <span style={{ display: 'block', fontSize: 9.5, color: 'var(--color-neutral-600)' }}>−{CITY_REVEAL_COST}</span>
               </button>
             )}
+            {/* Hold the gutter open on a row whose hint is already spent, so
+                using one doesn't leave that option wider than its neighbours.
+                Once answered every row drops the gutter together, so they stay
+                aligned either way. */}
+            {!answered && revealed && <div aria-hidden="true" style={{ flex: 'none', width: 72 }} />}
           </div>
         );
       })}

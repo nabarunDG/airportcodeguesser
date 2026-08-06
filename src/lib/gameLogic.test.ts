@@ -17,8 +17,10 @@ import {
   HUB_FLOOR_MIN,
   MIN_BATCH_ROUTES,
   MIN_FILL_ROUTES,
+  boardGroup,
   buildBatch,
   continentHubFloors,
+  ffTier,
   makeChoices,
   type Rng,
 } from './gameLogic';
@@ -192,6 +194,81 @@ describe('buildBatch distribution', () => {
     // airport could take a double-digit share of its continent's slot.
     const [worstIata, worstCount] = [...byIata.entries()].sort((x, y) => y[1] - x[1])[0];
     expect(worstCount / slots, `${worstIata} took too many slots`).toBeLessThan(0.02);
+  });
+});
+
+describe('ffTier', () => {
+  it('puts everything under half marks in Standby', () => {
+    // Deliberately the widest band: scores bunch high, so a decade-per-tier
+    // split left almost nobody down here and crowded everyone at the top.
+    for (const score of [0, 1, 25, 42, 49]) expect(ffTier(score)).toBe('Standby');
+    expect(ffTier(50)).not.toBe('Standby');
+  });
+
+  it('reserves Million Miler for a near-perfect batch', () => {
+    expect(ffTier(100)).toBe('Million Miler');
+    expect(ffTier(98)).toBe('Million Miler');
+    expect(ffTier(97)).toBe('Diamond');
+  });
+
+  it('narrows the bands as they climb', () => {
+    const widths: number[] = [];
+    let current = ffTier(50);
+    let start = 50;
+    for (let s = 51; s <= 101; s++) {
+      const tier = s <= 100 ? ffTier(s) : null;
+      if (tier !== current) {
+        widths.push(s - start);
+        current = tier as string;
+        start = s;
+      }
+    }
+    // Every band above Standby is narrower than or equal to the one below it.
+    for (let i = 1; i < widths.length; i++) {
+      expect(widths[i], `band ${i} vs ${i - 1}: ${widths.join(',')}`).toBeLessThanOrEqual(widths[i - 1]);
+    }
+    expect(widths[widths.length - 1]).toBeLessThan(widths[0]);
+  });
+
+  it('keeps the boarding group locked to the tier', () => {
+    // One source of truth: the pass shows both, so "Middle Seat · GROUP 5"
+    // would be a visible contradiction.
+    expect(boardGroup(100)).toBe(1); // Million Miler
+    expect(boardGroup(98)).toBe(1);
+    expect(boardGroup(97)).toBe(2); // Diamond
+    expect(boardGroup(49)).toBe(10); // Standby
+    expect(boardGroup(0)).toBe(10);
+
+    // Group must change exactly when the tier does, and never go backwards.
+    let prevTier = ffTier(0);
+    let prevGroup = boardGroup(0);
+    for (let s = 1; s <= 100; s++) {
+      const tier = ffTier(s);
+      const group = boardGroup(s);
+      expect(tier === prevTier, `score ${s}: tier/group changed out of step`).toBe(group === prevGroup);
+      expect(group).toBeLessThanOrEqual(prevGroup);
+      prevTier = tier;
+      prevGroup = group;
+    }
+  });
+
+  it('spans the full range of boarding groups', () => {
+    const groups = new Set(Array.from({ length: 101 }, (_, s) => boardGroup(s)));
+    expect(Math.min(...groups)).toBe(1);
+    expect(Math.max(...groups)).toBe(10);
+    expect(groups.size).toBe(10);
+  });
+
+  it('names a tier for every reachable score, in order', () => {
+    const seen: string[] = [];
+    for (let s = 0; s <= 100; s++) {
+      const t = ffTier(s);
+      expect(t, `score ${s}`).toBeTruthy();
+      if (t !== seen[seen.length - 1]) seen.push(t);
+    }
+    expect(seen[0]).toBe('Standby');
+    expect(seen[seen.length - 1]).toBe('Million Miler');
+    expect(seen).toHaveLength(10); // never skips a tier
   });
 });
 
