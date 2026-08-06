@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import type { GameEngine } from '../../hooks/useGameEngine';
 import { boardGroup, ffTier, fmtDur, todayDisplay } from '../../lib/gameLogic';
 import PassportStamp from '../PassportStamp';
-import Barcode from './summary/Barcode';
 import FlightLeadersBoard from './summary/FlightLeadersBoard';
 import PassportBook from './summary/PassportBook';
 
@@ -43,15 +42,40 @@ export default function SummaryScreen({ engine }: Props) {
       }}
     >
       <div style={{ width: 'min(400px, 100%)', borderRadius: 'var(--radius-lg)', background: 'var(--color-surface)', boxShadow: 'var(--shadow-md)', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-section)' }}>
+        {/* Play again lives up here, level with the card's name, because the
+            card is taller than a phone screen once the passport row and Flight
+            Leaders are on it — reaching the bottom button meant scrolling past
+            everything. The bottom one stays for players who read to the end. */}
+        <div style={{ padding: '10px 12px 10px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'var(--color-section)' }}>
           <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 500, letterSpacing: '0.12em', fontSize: 13 }}>GATE CHECK AIR</span>
-          <span style={{ fontSize: 11, color: 'var(--color-neutral-300)', fontVariantNumeric: 'tabular-nums' }}>GROUP {group}</span>
+          <button
+            onClick={engine.start}
+            style={{
+              font: 'inherit',
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              color: 'var(--color-accent-100)',
+              background: 'transparent',
+              border: '1px solid var(--color-accent-300)',
+              borderRadius: 20,
+              padding: '6px 14px',
+              minHeight: 34,
+            }}
+          >
+            Play again
+          </button>
         </div>
         <div style={{ padding: 18, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 10px', textAlign: 'left' }}>
           <SummaryField label="Frequent Flyer Status" value={ffTier(state.score)} accent />
           <SummaryField label="Flight" value={flightNo} mono />
           <SummaryField label="Correct" value={`${state.correct} / 10`} mono />
+          {/* Boarding group moved out of the header band to make room for
+              Play again; paired with Stamps so the grid stays even. */}
+          <SummaryField label="Boarding group" value={String(group)} mono />
           <SummaryField label="Hints used" value={String(state.hintsUsedTotal)} mono />
+          <SummaryField label="Stamps" value={String(state.stamps.length)} mono />
           <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'baseline', gap: 10, paddingTop: 4 }}>
             <span style={{ fontSize: 9.5, letterSpacing: '0.1em', color: 'var(--color-neutral-500)', textTransform: 'uppercase' }}>Score</span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 40, color: 'var(--color-accent)', lineHeight: 1 }}>{state.score}</span>
@@ -88,12 +112,12 @@ export default function SummaryScreen({ engine }: Props) {
           </div>
         )}
 
-        <div style={{ borderTop: '1.5px dashed var(--color-divider)', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Barcode bars={state.barcode} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--color-neutral-500)', fontVariantNumeric: 'tabular-nums' }}>
-            <span>{todayDisplay()} UTC</span>
-            <span>time on board {batchTime}</span>
-          </div>
+        {/* The barcode used to sit above this line. Dropped once the passport
+            row landed: two blocks of dense ink on one card competed with each
+            other, and the stamps are the ones carrying meaning. */}
+        <div style={{ borderTop: '1.5px dashed var(--color-divider)', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 10.5, color: 'var(--color-neutral-500)', fontVariantNumeric: 'tabular-nums' }}>
+          <span>{todayDisplay()} UTC</span>
+          <span>time on board {batchTime}</span>
         </div>
 
         {/* The leaderboard as the boarding pass's "stub" — same card, torn off

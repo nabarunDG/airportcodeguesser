@@ -68,6 +68,11 @@ Centered column: verdict pill (filled, radius 22px, 8px 18px, Inter 500 16px, le
 
 ### 7. Batch summary (boarding pass)
 Card 400px, radius-lg, `--shadow-md`: header band `--color-section` "GATE CHECK AIR / GROUP n" — boarding group = max(1, 10 − floor(score/10)) so 90–100 pts boards Group 1. Two-column grid: **Frequent Flyer Status** (accent-300; 10 tiers by decade of score: Standby, Middle Seat, Basic Economy, Main Cabin, Extra Legroom, Silver Wings, Gold Wings, Platinum, Diamond, Million Miler), Flight "GC-n0c", Correct n/10, Hints used, and SCORE (mono 40px accent) / 100. Dashed perforation, then a randomized barcode (~52 bars, widths 1–3px, gaps 1–4px, `--color-neutral-300` at 0.7 opacity, regenerated per batch) and footer "August 4, 2026 UTC · time on board 4m 32s" (long-form date).
+
+**Changes since handoff.** Three, all from watching real play:
+- The header band's right slot is now a **Play again** control, not "GROUP n" — once the passport row and Flight Leaders are both on this card it is taller than a phone screen, and the bottom button meant scrolling past everything to replay. Boarding group moved into the field grid (paired with Stamps, keeping it even at 3×2).
+- **Frequent Flyer tiers are no longer one per decade.** Real scores bunch at the top, so most batches landed in the top two or three tiers and Million Miler meant nothing. Standby now absorbs everything below 50, and the nine tiers above it narrow as they climb (8 points wide at the bottom, 3 at the top); Million Miler needs 98. See `FF_TIERS` in src/lib/gameLogic.ts.
+- The **barcode is gone** (component and generator deleted). Once passport stamps sat on this card, two blocks of dense ink competed with each other and the stamps are the ones carrying meaning. The date and "time on board" footer stays.
 Below: required field "Your home or current airport (required)" (3-char uppercase mono input) + "Post score" primary; inline error (12px accent-300) for invalid/unknown IATA codes (validated against the dataset) or incomplete batches. "New boarding group" and "Flight Leaders" buttons are **disabled until 3 letters are entered or the score is posted**.
 
 ### 8. Flight Leaders (leaderboard)

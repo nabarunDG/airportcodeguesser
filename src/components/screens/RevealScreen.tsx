@@ -73,21 +73,22 @@ export default function RevealScreen({ engine }: Props) {
         <span>{verdict}</span>
       </div>
 
-      {/* The stamp sits beside the airport identity on wide screens and wraps
-          under it on narrow ones, rather than displacing the score line. */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 40, color: 'var(--color-accent)' }}>{currentAirport.iata}</div>
-          <h2 style={{ fontSize: 26, margin: 0 }}>{currentAirport.name}</h2>
-          <p style={{ fontSize: 14, color: 'var(--color-neutral-400)', margin: 0 }}>
-            {currentAirport.city_name} · {currentAirport.country}
-          </p>
-          <p style={{ fontSize: 14, margin: '6px 0 0', color: ptsColor }}>{ptsLine}</p>
-        </div>
-        {/* Only a country's first stamp of the day gets the press animation —
-            across ten rounds the flourish would otherwise wear thin. */}
-        {stamp && <PassportStamp stamp={stamp} animate={stamp.firstVisit} width={112} />}
+      {/* The identity block owns the full width so the code, name and city stay
+          optically centred whatever the name's length — putting the stamp in
+          this row instead pushed a long name ("General Mitchell International")
+          off-centre and crowded its right edge. The stamp gets its own line. */}
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 40, color: 'var(--color-accent)' }}>{currentAirport.iata}</div>
+        <h2 style={{ fontSize: 26, margin: 0, textWrap: 'balance' }}>{currentAirport.name}</h2>
+        <p style={{ fontSize: 14, color: 'var(--color-neutral-400)', margin: 0 }}>
+          {currentAirport.city_name} · {currentAirport.country}
+        </p>
+        <p style={{ fontSize: 14, margin: '6px 0 0', color: ptsColor }}>{ptsLine}</p>
       </div>
+
+      {/* Only a country's first stamp of the day gets the press animation —
+          across ten rounds the flourish would otherwise wear thin. */}
+      {stamp && <PassportStamp stamp={stamp} animate={stamp.firstVisit} width={124} />}
 
       <div className="card elev-sm" style={{ maxWidth: 380, width: '100%', textAlign: 'left' }}>
         <span className="card-kicker">From the flight logs</span>

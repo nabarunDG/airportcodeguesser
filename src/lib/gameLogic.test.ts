@@ -19,6 +19,7 @@ import {
   MIN_FILL_ROUTES,
   buildBatch,
   continentHubFloors,
+  ffTier,
   makeChoices,
   type Rng,
 } from './gameLogic';
@@ -192,6 +193,52 @@ describe('buildBatch distribution', () => {
     // airport could take a double-digit share of its continent's slot.
     const [worstIata, worstCount] = [...byIata.entries()].sort((x, y) => y[1] - x[1])[0];
     expect(worstCount / slots, `${worstIata} took too many slots`).toBeLessThan(0.02);
+  });
+});
+
+describe('ffTier', () => {
+  it('puts everything under half marks in Standby', () => {
+    // Deliberately the widest band: scores bunch high, so a decade-per-tier
+    // split left almost nobody down here and crowded everyone at the top.
+    for (const score of [0, 1, 25, 42, 49]) expect(ffTier(score)).toBe('Standby');
+    expect(ffTier(50)).not.toBe('Standby');
+  });
+
+  it('reserves Million Miler for a near-perfect batch', () => {
+    expect(ffTier(100)).toBe('Million Miler');
+    expect(ffTier(98)).toBe('Million Miler');
+    expect(ffTier(97)).toBe('Diamond');
+  });
+
+  it('narrows the bands as they climb', () => {
+    const widths: number[] = [];
+    let current = ffTier(50);
+    let start = 50;
+    for (let s = 51; s <= 101; s++) {
+      const tier = s <= 100 ? ffTier(s) : null;
+      if (tier !== current) {
+        widths.push(s - start);
+        current = tier as string;
+        start = s;
+      }
+    }
+    // Every band above Standby is narrower than or equal to the one below it.
+    for (let i = 1; i < widths.length; i++) {
+      expect(widths[i], `band ${i} vs ${i - 1}: ${widths.join(',')}`).toBeLessThanOrEqual(widths[i - 1]);
+    }
+    expect(widths[widths.length - 1]).toBeLessThan(widths[0]);
+  });
+
+  it('names a tier for every reachable score, in order', () => {
+    const seen: string[] = [];
+    for (let s = 0; s <= 100; s++) {
+      const t = ffTier(s);
+      expect(t, `score ${s}`).toBeTruthy();
+      if (t !== seen[seen.length - 1]) seen.push(t);
+    }
+    expect(seen[0]).toBe('Standby');
+    expect(seen[seen.length - 1]).toBe('Million Miler');
+    expect(seen).toHaveLength(10); // never skips a tier
   });
 });
 
