@@ -134,7 +134,11 @@ export const apiLeaderboardClient: LeaderboardClient = {
     const empty = { rows: [] as LeaderboardRow[], today: { pax: 0, points: 0 } };
     try {
       const params = new URLSearchParams({ weekStart, date: today, sort, dir, playerId });
-      const res = await fetch(`/api/leaderboard?${params.toString()}`);
+      // `no-store` here as well as on the response: the server header stops new
+      // responses being cached, but a browser that already holds a heuristically
+      // cached copy would keep serving it, so a player mid-session would still
+      // see a stale board right after posting.
+      const res = await fetch(`/api/leaderboard?${params.toString()}`, { cache: 'no-store' });
       if (!res.ok) return empty;
       const body = (await res.json()) as { rows?: LeaderboardRow[]; today?: TodayStats };
       return {
