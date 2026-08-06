@@ -17,7 +17,8 @@ export const HINT_COST = 2;
 export const CITY_REVEAL_COST = 1; // per-option "reveal this city" cost — see ChoiceList
 export const MIN_BATCH_ROUTES = 8; // floor to be a batch answer/distractor
 export const MIN_FILL_ROUTES = 20; // floor for random fallback-fill picks
-export const MIN_HUB_ROUTES = 45; // floor to count as a "major hub"
+export const HUB_TOP_FRACTION = 0.2; // "hub" = top 20% by route count *within its continent*
+export const HUB_FLOOR_MIN = 20; // …but never below this many routes, however small the continent
 export const BATCH_SIZE = 10;
 export const REUSE_POOL_FLOOR = 80; // reset the used-set once the remaining pool drops below this
 
@@ -29,36 +30,68 @@ export const DEST_DISPLAY_CAP = 36;
 
 export const CONTINENTS: Continent[] = ['NA', 'EU', 'AS', 'SA', 'AF', 'OC'];
 
-export function shuffle<T>(list: T[]): T[] {
+/** RNG source, [0, 1) like Math.random — injectable for seeded tests / daily modes. */
+export type Rng = () => number;
+
+export function shuffle<T>(list: T[], rng: Rng = Math.random): T[] {
   const l = list.slice();
   for (let i = l.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [l[i], l[j]] = [l[j], l[i]];
   }
   return l;
 }
 
-/** Weighted-random pick, weight = routes.length² (biases toward larger airports). */
-export function wpick(list: Airport[]): Airport | undefined {
+/**
+ * Weighted-random pick, weight = √routes.length. Sub-linear on purpose: it
+ * keeps a mild bias toward larger (more guessable) airports without letting
+ * mega-hubs monopolize a slot — under the old routes² weighting a 289-route
+ * FRA outweighed a 45-route hub 41-to-1 and the same few airports appeared
+ * every batch.
+ */
+export function wpick(list: Airport[], rng: Rng = Math.random): Airport | undefined {
   if (list.length === 0) return undefined;
   let total = 0;
-  for (const a of list) total += a.routes.length * a.routes.length;
-  if (total <= 0) return list[Math.floor(Math.random() * list.length)];
-  let r = Math.random() * total;
+  for (const a of list) total += Math.sqrt(a.routes.length);
+  if (total <= 0) return list[Math.floor(rng() * list.length)];
+  let r = rng() * total;
   for (const a of list) {
-    r -= a.routes.length * a.routes.length;
+    r -= Math.sqrt(a.routes.length);
     if (r <= 0) return a;
   }
   return list[list.length - 1];
 }
 
 /**
- * Builds one batch of BATCH_SIZE airports: at least one major hub (if
- * available) + one per continent (if available), then weighted-random fill.
- * Mutates `used` (adds every airport placed into the batch); clears it first
- * if the remaining pool is too small to draw a fresh batch from.
+ * Per-continent hub floors: the route count marking the top HUB_TOP_FRACTION
+ * of the continent's pool, clamped to ≥ HUB_FLOOR_MIN. Relative rather than a
+ * single global threshold, so "hub" means JNB or SYD in their own continents
+ * as much as it means FRA in Europe (a global ≥45 floor left Africa with just
+ * 12 eligible hubs vs Europe's 138).
  */
-export function buildBatch(all: Airport[], used: Set<string>): Airport[] {
+export function continentHubFloors(pool: Airport[]): Map<Continent, number> {
+  const floors = new Map<Continent, number>();
+  for (const continent of CONTINENTS) {
+    const counts = pool
+      .filter((a) => a.continent === continent)
+      .map((a) => a.routes.length)
+      .sort((x, y) => y - x);
+    if (counts.length === 0) continue;
+    const cutoff = counts[Math.min(counts.length - 1, Math.floor(counts.length * HUB_TOP_FRACTION))];
+    floors.set(continent, Math.max(HUB_FLOOR_MIN, cutoff));
+  }
+  return floors;
+}
+
+/**
+ * Builds one batch of BATCH_SIZE airports: one anchor hub from a uniformly
+ * random continent (so the biggest name in the batch rotates between ATL-class
+ * and ADD/GRU/SYD-class hubs) + one per continent + weighted-random fill,
+ * ordered largest-first as a difficulty ramp. Mutates `used` (adds every
+ * airport placed into the batch); clears it first if the remaining pool is
+ * too small to draw a fresh batch from.
+ */
+export function buildBatch(all: Airport[], used: Set<string>, rng: Rng = Math.random): Airport[] {
   let pool = all.filter((a) => a.routes.length >= MIN_BATCH_ROUTES && !used.has(a.iata));
   if (pool.length < REUSE_POOL_FLOOR) {
     used.clear();
@@ -67,15 +100,23 @@ export function buildBatch(all: Airport[], used: Set<string>): Airport[] {
 
   const picked = new Set<string>();
   const batch: Airport[] = [];
+  const floors = continentHubFloors(pool);
+  const isHub = (a: Airport) => {
+    const floor = floors.get(a.continent as Continent);
+    return floor !== undefined && a.routes.length >= floor;
+  };
 
-  const hub = wpick(pool.filter((a) => a.routes.length >= MIN_HUB_ROUTES));
+  const anchorContinent = CONTINENTS[Math.floor(rng() * CONTINENTS.length)];
+  const hub =
+    wpick(pool.filter((a) => a.continent === anchorContinent && isHub(a)), rng) ??
+    wpick(pool.filter(isHub), rng);
   if (hub) {
     picked.add(hub.iata);
     batch.push(hub);
   }
 
   for (const continent of CONTINENTS) {
-    const candidate = wpick(pool.filter((a) => a.continent === continent && !picked.has(a.iata)));
+    const candidate = wpick(pool.filter((a) => a.continent === continent && !picked.has(a.iata)), rng);
     if (candidate) {
       picked.add(candidate.iata);
       batch.push(candidate);
@@ -87,15 +128,18 @@ export function buildBatch(all: Airport[], used: Set<string>): Airport[] {
   while (batch.length < BATCH_SIZE && attempts < maxAttempts) {
     attempts++;
     const candidatePool = pool.filter((a) => !picked.has(a.iata));
-    const candidate = wpick(candidatePool);
+    const candidate = wpick(candidatePool, rng);
     if (!candidate) break;
     picked.add(candidate.iata);
     batch.push(candidate);
   }
 
-  const shuffled = shuffle(batch);
-  shuffled.forEach((a) => used.add(a.iata));
-  return shuffled;
+  // Largest-first difficulty ramp instead of a shuffle: round 1 is the anchor
+  // hub, the last rounds are the regional airports — an obscure answer late
+  // in the batch reads as "the hard ones", not as random unfairness.
+  const ramped = batch.slice().sort((x, y) => y.routes.length - x.routes.length);
+  ramped.forEach((a) => used.add(a.iata));
+  return ramped;
 }
 
 const MAX_CHOICE_FILL_ATTEMPTS = 200;
@@ -106,14 +150,33 @@ const MAX_CHOICE_FILL_ATTEMPTS = 200;
  * answer's airport-name first letter + 1 sharing the city-name first letter;
  * deduped by iata AND name; randomly filled (≥MIN_FILL_ROUTES routes) if
  * short; shuffled.
+ *
+ * When the answer is a small regional airport, every one of those picks
+ * prefers its own continent, because a lone unfamiliar name among four
+ * world-famous hubs gives the answer away by elimination. Each preference
+ * falls back to the global pool if the regional candidates run out, so the
+ * option count never suffers for it.
+ *
+ * `exclude` keeps the rest of the current batch out of the options — seeing
+ * round 7's answer sitting in round 2's wrong options spoils it.
  */
-export function makeChoices(all: Airport[], answer: Airport): Choice[] {
+export function makeChoices(
+  all: Airport[],
+  answer: Airport,
+  exclude?: ReadonlySet<string>,
+  rng: Rng = Math.random,
+): Choice[] {
   const pool = all.filter(
-    (a) => a.routes.length >= MIN_BATCH_ROUTES && a.iata !== answer.iata && a.name !== answer.name,
+    (a) =>
+      a.routes.length >= MIN_BATCH_ROUTES &&
+      a.iata !== answer.iata &&
+      a.name !== answer.name &&
+      !exclude?.has(a.iata),
   );
   const lat = answer.latitude;
   const lon = answer.longitude;
   const manhattan = (a: Airport) => Math.abs(a.latitude - lat) + Math.abs(a.longitude - lon);
+  const preferRegional = answer.routes.length < MIN_FILL_ROUTES;
 
   const taken = new Set<string>([answer.iata]);
   const out: Airport[] = [];
@@ -121,35 +184,56 @@ export function makeChoices(all: Airport[], answer: Airport): Choice[] {
   const take = (list: Airport[], n: number) => {
     const available = list.filter((a) => !taken.has(a.iata) && !out.some((o) => o.name === a.name));
     for (let k = 0; k < n && available.length; k++) {
-      const j = Math.floor(Math.random() * available.length);
+      const j = Math.floor(rng() * available.length);
       const a = available.splice(j, 1)[0];
       taken.add(a.iata);
       out.push(a);
     }
   };
 
-  take(
+  /** Takes `n` from `list`, exhausting same-continent candidates first for a regional answer. */
+  const takePreferRegional = (list: Airport[], n: number) => {
+    const before = out.length;
+    if (preferRegional) take(list.filter((a) => a.continent === answer.continent), n);
+    take(list, n - (out.length - before));
+  };
+
+  takePreferRegional(
     pool
       .filter((a) => a.city_name !== answer.city_name)
       .sort((x, y) => manhattan(x) - manhattan(y))
       .slice(0, 10),
     2,
   );
-  take(pool.filter((a) => a.name[0]?.toUpperCase() === answer.name[0]?.toUpperCase()), 1);
-  take(pool.filter((a) => a.city_name[0]?.toUpperCase() === answer.city_name[0]?.toUpperCase()), 1);
+  takePreferRegional(pool.filter((a) => a.name[0]?.toUpperCase() === answer.name[0]?.toUpperCase()), 1);
+  takePreferRegional(pool.filter((a) => a.city_name[0]?.toUpperCase() === answer.city_name[0]?.toUpperCase()), 1);
 
-  const fillPool = pool.filter((a) => a.routes.length >= MIN_FILL_ROUTES);
-  let attempts = 0;
-  while (out.length < 4 && attempts < MAX_CHOICE_FILL_ATTEMPTS) {
-    attempts++;
-    const pick = wpick(fillPool);
-    if (!pick) break;
-    take([pick], 1);
+  const globalFill = pool.filter((a) => a.routes.length >= MIN_FILL_ROUTES);
+  const fillPools = preferRegional
+    ? [globalFill.filter((a) => a.continent === answer.continent), globalFill]
+    : [globalFill];
+  for (const fillPool of fillPools) {
+    let attempts = 0;
+    while (out.length < 4 && attempts < MAX_CHOICE_FILL_ATTEMPTS) {
+      attempts++;
+      const pick = wpick(fillPool, rng);
+      if (!pick) break;
+      take([pick], 1);
+    }
   }
 
   const choices: Choice[] = [...out.map((a) => ({ airport: a, ok: false })), { airport: answer, ok: true }];
-  return shuffle(choices);
+  return shuffle(choices, rng);
 }
+
+// The dataset's `elevation` is in FEET, not metres — La Paz reads 13,313 and
+// Amsterdam −11. The original port (and the design handoff it came from)
+// printed it as "m", which claimed Denver sat at 5,389 m: higher than any
+// airport on earth. The threshold was wrong for the same reason — 1,500 read
+// as feet fires for 406 of 2,147 airports, most of them unremarkable. 1,500 m
+// is the height actually worth a remark about takeoff rolls.
+const FT_PER_M_INVERSE = 0.3048;
+const HIGH_ELEVATION_FT = Math.round(1500 / FT_PER_M_INVERSE); // ≈4,921 ft
 
 /** Picks one random applicable fun fact about the answer airport, derived from its route data. */
 export function makeFact(answer: Airport, byCode: Record<string, Airport>): string {
@@ -177,8 +261,11 @@ export function makeFact(answer: Airport, byCode: Record<string, Airport>): stri
   if (countries.size > 1) {
     facts.push(`You can fly nonstop from here to ${countries.size} countries.`);
   }
-  if (answer.elevation > 1500) {
-    facts.push(`At ${answer.elevation.toLocaleString()} m elevation, planes need a longer takeoff roll here.`);
+  if (answer.elevation > HIGH_ELEVATION_FT) {
+    const metres = Math.round(answer.elevation * FT_PER_M_INVERSE);
+    facts.push(
+      `At ${answer.elevation.toLocaleString()} ft (${metres.toLocaleString()} m) elevation, planes need a longer takeoff roll here.`,
+    );
   }
   if (facts.length === 0) {
     facts.push(`It serves ${answer.routes.length} nonstop destinations.`);

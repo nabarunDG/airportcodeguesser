@@ -20,6 +20,16 @@ The files in `design/` are **design references created in HTML** — a working p
 - **Known caveat**: the dataset has no true flight-frequency numbers. Daily departures are *estimated* as the sum of carrier counts across routes (bucketed "N+", capped "300+"); route traffic for the sort-hint is the per-route carrier count (shown "×N"). Label these as estimates.
 
 ## Game rules (exact)
+
+> **Note — partly superseded.** This section records the rules as originally
+> handed off. Airport selection, round ordering, scoring maximum, and the
+> Destinations clue were revised after launch to fix a geographic-variety
+> problem (the `routes.length²` weighting below gave Africa 2.6% of the draw
+> weight against 7.5% of the eligible pool, and locked the hub slot to the
+> same dozen mega-hubs). The current rules live in `src/lib/gameLogic.ts`,
+> with the changes summarized in the root `README.md` under "Airport
+> selection". Everything else here is still accurate.
+
 - Batch = 10 airports: at least 1 "major hub" (≥45 routes) + at least one airport per continent (NA, EU, AS, SA, AF, OC) when available; remaining slots weighted-random with weight = routes.length² (biases toward larger airports). No repeats within a session (reset the used-set if the pool runs low, <80 remaining).
 - Scoring: correct = 10 pts minus 2 per hint used that round, floored at 2. Wrong or skipped = 0. Max 100/batch.
 - 5 multiple-choice options, **airport names** (never codes): the answer + 2 nearest airports (Manhattan distance on lat/lon, excluding same city) + 1 sharing the answer's airport-name first letter + 1 sharing the city-name first letter; dedupe by iata AND name; fill randomly (≥20 routes) if short; shuffle.
@@ -27,7 +37,7 @@ The files in `design/` are **design references created in HTML** — a working p
 - Hints (−2 pts each, one-time per round, in the "Hint bag"): **Sort routes by traffic** (destinations re-sort desc by carrier count, showing "×N"), **Airline names** (carrier chips gain full names), **Show cities** (each choice shows "City, Country" beneath), **Reveal country** (answer's country tag appears by the code tiles).
 - Timeout: no visible countdown. After 120 s idle → "Still there?" dialog ("this round will taxi away in 30 seconds"); at 150 s idle → round auto-skips to reveal as "TAXIED AWAY", 0 pts.
 - After answering: 1 s pause showing colored choice states, then reveal screen.
-- Fun fact on reveal, derived from data (pick randomly among applicable): longest nonstop (km + hours), most-contested route (carrier count), countries served nonstop, elevation >1,500 m.
+- Fun fact on reveal, derived from data (pick randomly among applicable): longest nonstop (km + hours), most-contested route (carrier count), countries served nonstop, elevation >1,500 m. **Correction:** the source dataset's `elevation` is in **feet**, not metres (La Paz 13,313; Amsterdam −11), so this rule as written both mislabelled the unit and set the bar at 1,500 ft. The implementation now compares against ≈4,921 ft (1,500 m) and prints both units.
 - Time-on-page is a marketing metric: accumulate seconds per batch into persistent storage.
 
 ## Screens / Views

@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function GameScreen({ engine }: Props) {
-  const { state, currentAirport, byCode } = engine;
+  const { state, currentAirport, byCode, countryHintFree } = engine;
   if (!currentAirport) return null;
 
   return (
@@ -36,6 +36,7 @@ export default function GameScreen({ engine }: Props) {
         byCode={byCode}
         clues={state.clues}
         hints={state.hints}
+        countryHintFree={countryHintFree}
         disabled={state.answered}
         onPull={engine.pullClue}
         onUseHint={engine.useHint}

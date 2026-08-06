@@ -6,6 +6,10 @@
 @keyframes gcDrift { from { transform: translateX(-140px); } to { transform: translateX(calc(100vw + 140px)); } }
 @keyframes gcChip { from { opacity: 0; transform: translateY(7px) scale(0.96); } to { opacity: 1; transform: none; } }
 @keyframes gcPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+/* Passport-stamp keyframes (press + ink bleed) live in
+   src/components/PassportStamp.css, next to the component that owns them —
+   they need the per-stamp --gc-tilt and --gc-delay custom properties. */
 @keyframes gcFlapSquash { 0%, 93% { transform: scaleY(1); } 96.5% { transform: scaleY(0.15); } 100% { transform: scaleY(1); } }
 
 /* Split-flap letter cycles for the three logo tiles (J-F-K → C-D-G → H-N-D →

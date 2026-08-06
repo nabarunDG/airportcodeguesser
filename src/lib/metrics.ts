@@ -6,19 +6,42 @@
 import { getPlayerId } from './playerId';
 
 const PING_ENDPOINT = '/api/ping';
+const BATCH_ENDPOINT = '/api/batch';
 const PING_INTERVAL_MS = 60_000;
 
-function sendPing(seconds: number): void {
-  const payload = JSON.stringify({ playerId: getPlayerId(), seconds });
+function post(endpoint: string, payload: string): void {
   // sendBeacon survives page unload (the case fetch would otherwise miss);
   // fall back to a keepalive fetch on the rare browser without it.
   if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-    navigator.sendBeacon(PING_ENDPOINT, new Blob([payload], { type: 'application/json' }));
+    navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }));
   } else {
-    fetch(PING_ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: payload, keepalive: true }).catch(
+    fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: payload, keepalive: true }).catch(
       () => {},
     );
   }
+}
+
+function sendPing(seconds: number): void {
+  post(PING_ENDPOINT, JSON.stringify({ playerId: getPlayerId(), seconds }));
+}
+
+export interface BatchMetric {
+  durationSeconds: number;
+  score: number;
+  correct: number;
+  hintsUsed: number;
+  stamps: number;
+}
+
+/**
+ * Reports one finished batch (duration to the final answer, score, correct
+ * count, hints, stamps) to the `batches` D1 table — fired regardless of
+ * whether the player posts to the leaderboard. Same anonymity model as the
+ * visit ping; no-op during `vite dev`.
+ */
+export function reportBatch(metric: BatchMetric): void {
+  if (import.meta.env.DEV) return;
+  post(BATCH_ENDPOINT, JSON.stringify({ playerId: getPlayerId(), ...metric }));
 }
 
 /**

@@ -13,6 +13,8 @@ interface Props {
   byCode: Record<string, Airport>;
   clues: { car: boolean; dest: boolean };
   hints: { country: boolean; carrierNames: boolean; destNames: boolean };
+  /** Small regional airports are unguessable without a geographic anchor, so their country hint is free. */
+  countryHintFree: boolean;
   disabled: boolean;
   onPull: (key: ClueKey) => void;
   onUseHint: (key: HintKey) => void;
@@ -44,7 +46,7 @@ const hintPillStyle = (done: boolean, disabled: boolean): CSSProperties => ({
   minHeight: 34,
 });
 
-export default function CluePills({ airport, byCode, clues, hints, disabled, onPull, onUseHint }: Props) {
+export default function CluePills({ airport, byCode, clues, hints, countryHintFree, disabled, onPull, onUseHint }: Props) {
   // Raw data is memoized per-airport only — the carrier shuffle order must
   // stay stable for the whole round; the dest cache is cheap and
   // deterministic, so it's fine to recompute it every render.
@@ -52,12 +54,23 @@ export default function CluePills({ airport, byCode, clues, hints, disabled, onP
   const carrierList = useMemo(() => buildCarrierList(airport), [airport.iata]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on iata (a stable primitive) by design, not the object
   const destCache = useMemo(() => buildDestCache(airport), [airport.iata]);
-  const destSorted = useMemo(() => destCache.slice().sort((x, y) => (x.code < y.code ? -1 : 1)), [destCache]);
+  // Pick the busiest routes *first*, then alphabetize that subset for display.
+  // Truncating an alphabetical list instead would show a 150-route hub's A–F
+  // slice only, hiding its most recognizable (and most non-European)
+  // destinations behind "+N more".
+  const visibleDests = useMemo(
+    () =>
+      destCache
+        .slice()
+        .sort((x, y) => y.n - x.n)
+        .slice(0, DEST_DISPLAY_CAP)
+        .sort((x, y) => (x.code < y.code ? -1 : 1)),
+    [destCache],
+  );
 
   const visibleCarriers = carrierList.slice(0, CARRIER_DISPLAY_CAP);
   const carrierMore = Math.max(0, carrierList.length - CARRIER_DISPLAY_CAP);
-  const visibleDests = destSorted.slice(0, DEST_DISPLAY_CAP);
-  const destMore = Math.max(0, destSorted.length - DEST_DISPLAY_CAP);
+  const destMore = Math.max(0, destCache.length - DEST_DISPLAY_CAP);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -73,7 +86,7 @@ export default function CluePills({ airport, byCode, clues, hints, disabled, onP
           disabled={hints.country || disabled}
           style={hintPillStyle(hints.country, disabled)}
         >
-          {hints.country ? 'Country ✓' : `Reveal country −${HINT_COST} pts`}
+          {hints.country ? 'Country ✓' : countryHintFree ? 'Reveal country — free' : `Reveal country −${HINT_COST} pts`}
         </button>
       </div>
 

@@ -1,18 +1,32 @@
 // The ported prototype `Component` class, as a React hook. Owns the screen
 // state machine, batch/round progression, scoring, hint/clue reveal state,
 // the idle timer, and leaderboard actions. Per-round presentational
-// concerns that don't affect gameplay (the local clock, weather, live
-// "time on board" duration) are deliberately kept OUT of this hook and live
-// as small standalone hooks used directly by the screens that render them —
-// see useWeather/useLocalClock/useLiveDuration.
+// concerns that don't affect gameplay (the local clock, weather) are
+// deliberately kept OUT of this hook and live as small standalone hooks used
+// directly by the screens that render them — see useWeather/useLocalClock.
+// "Time on board" is the exception: it's part of gameplay state here, since
+// the summary must show the batch's *finished* duration (batchEndMs), not a
+// clock that keeps running while the boarding pass is on screen.
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
-import type { Airport, ClueKey, Choice, HintKey, LbDir, LbSort, LeaderboardRow, Screen, TodayStats } from '../types';
+import type {
+  Airport,
+  ClueKey,
+  Choice,
+  HintKey,
+  LbDir,
+  LbSort,
+  LeaderboardRow,
+  Screen,
+  StampRecord,
+  TodayStats,
+} from '../types';
 import {
   BATCH_SIZE,
   CITY_REVEAL_COST,
   HINT_COST,
   IDLE_NUDGE_SECONDS,
   IDLE_SKIP_SECONDS,
+  MIN_FILL_ROUTES,
   buildBatch,
   makeBarcode,
   makeChoices,
@@ -22,10 +36,12 @@ import {
   weekStartUTC,
   type BarcodeBar,
 } from '../lib/gameLogic';
+import { stampSlots } from '../lib/stampTemplates';
 import type { LeaderboardClient } from '../lib/leaderboardClient';
 import { getPlayerId } from '../lib/playerId';
+import { reportBatch } from '../lib/metrics';
 import { accumulateTime } from '../lib/timeMetric';
-import { loadUsedToday, saveUsedToday } from '../lib/usedAirportsStore';
+import { loadStampedToday, loadUsedToday, saveStampedToday, saveUsedToday } from '../lib/usedAirportsStore';
 
 interface HintFlags {
   country: boolean;
@@ -50,6 +66,9 @@ interface EngineState {
   timedOut: boolean;
   nudge: boolean;
   lastRoundPoints: number;
+  lastRoundStamp: StampRecord | null; // every correct answer earns one
+  stamps: StampRecord[]; // this batch's stamps, in the order earned
+  batchEndMs: number | null; // when the batch's final round was answered/skipped — freezes "time on board"
   clues: ClueFlags;
   hints: HintFlags;
   revealedCities: number[]; // choice indices whose city has been paid-reveal'd this round
@@ -83,6 +102,9 @@ const initialState: EngineState = {
   timedOut: false,
   nudge: false,
   lastRoundPoints: 0,
+  lastRoundStamp: null,
+  stamps: [],
+  batchEndMs: null,
   clues: NO_CLUES,
   hints: NO_HINTS,
   revealedCities: [],
@@ -101,10 +123,10 @@ const initialState: EngineState = {
 type Action =
   | { type: 'START_BATCH'; barcode: BarcodeBar[] }
   | { type: 'START_ROUND'; idx: number; choices: Choice[]; fact: string }
-  | { type: 'PICK'; idx: number; ok: boolean; points: number }
+  | { type: 'PICK'; idx: number; ok: boolean; points: number; stamp: StampRecord | null; now: number }
   | { type: 'REVEAL' }
-  | { type: 'SKIP_ROUND' }
-  | { type: 'GO_TO_SUMMARY' }
+  | { type: 'SKIP_ROUND'; now: number }
+  | { type: 'GO_TO_SUMMARY'; now: number }
   | { type: 'USE_HINT'; key: HintKey }
   | { type: 'PULL_CLUE'; key: ClueKey }
   | { type: 'REVEAL_CITY'; idx: number }
@@ -130,6 +152,9 @@ function reducer(state: EngineState, action: Action): EngineState {
         saved: false,
         homeInput: '',
         homeErr: '',
+        lastRoundStamp: null,
+        stamps: [],
+        batchEndMs: null,
         barcode: action.barcode,
       };
     case 'START_ROUND':
@@ -153,10 +178,16 @@ function reducer(state: EngineState, action: Action): EngineState {
         answered: true,
         answeredIdx: action.idx,
         timedOut: false,
+        // Stamps are collectibles, not currency — they never move the score.
         score: state.score + action.points,
         correct: state.correct + (action.ok ? 1 : 0),
         doneRounds: state.doneRounds + 1,
         lastRoundPoints: action.points,
+        lastRoundStamp: action.stamp,
+        stamps: action.stamp ? [...state.stamps, action.stamp] : state.stamps,
+        // The batch's final answer freezes "time on board" — the summary shows
+        // this fixed duration, not a still-ticking clock.
+        batchEndMs: state.roundIdx + 1 >= BATCH_SIZE ? action.now : state.batchEndMs,
       };
     case 'REVEAL':
       // Mirrors the prototype's own guard (`if (this.state.answered) …`): only
@@ -171,10 +202,14 @@ function reducer(state: EngineState, action: Action): EngineState {
         timedOut: true,
         nudge: false,
         lastRoundPoints: 0,
+        lastRoundStamp: null,
+        batchEndMs: state.roundIdx + 1 >= BATCH_SIZE ? action.now : state.batchEndMs,
         screen: 'reveal',
       };
     case 'GO_TO_SUMMARY':
-      return { ...state, screen: 'summary' };
+      // batchEndMs is normally already frozen by the final PICK/SKIP_ROUND;
+      // the fallback only covers a short batch (pool ran dry below BATCH_SIZE).
+      return { ...state, screen: 'summary', batchEndMs: state.batchEndMs ?? action.now };
     case 'USE_HINT':
       if (state.hints[action.key] || state.answered) return state;
       return {
@@ -235,6 +270,7 @@ export interface GameEngine {
   currentAirport: Airport | undefined;
   byCode: Record<string, Airport>;
   hintsUsedThisRound: number;
+  countryHintFree: boolean;
   batchStartMs: number | null;
   start: () => void;
   pick: (idx: number) => void;
@@ -259,20 +295,28 @@ export function useGameEngine(
 ): GameEngine {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  // Lazy-init from today's (UTC) persisted used-set, not `new Set()` — see
+  // Lazy-init from the persisted used/stamped sets, not `new Set()` — see
   // src/lib/usedAirportsStore.ts.
   const usedRef = useLazyRef<Set<string>>(loadUsedToday);
+  const stampedRef = useLazyRef<Set<string>>(loadStampedToday);
   const batchRef = useRef<Airport[]>([]);
   const lastActRef = useRef<number>(Date.now());
   const batchStartRef = useRef<number | null>(null);
 
   const currentAirport = batchRef.current[state.roundIdx];
   const hintsUsedThisRound = Object.values(state.hints).filter(Boolean).length + state.revealedCities.length;
-  // Boolean hints (country/carrierNames/destNames) each cost HINT_COST; every
-  // per-option city reveal costs CITY_REVEAL_COST — summed for `roundPoints`,
-  // since the two kinds of reveal aren't priced the same.
+  // Small regional answers are unguessable without a geographic anchor, so
+  // the country hint is free on those rounds (the other hints still cost).
+  const countryHintFree = Boolean(currentAirport && currentAirport.routes.length < MIN_FILL_ROUTES);
+  // Boolean hints (country/carrierNames/destNames) each cost HINT_COST
+  // (country possibly free, see above); every per-option city reveal costs
+  // CITY_REVEAL_COST — summed for `roundPoints`, since the kinds of reveal
+  // aren't priced the same.
   const hintsCostThisRound =
-    Object.values(state.hints).filter(Boolean).length * HINT_COST + state.revealedCities.length * CITY_REVEAL_COST;
+    (state.hints.country && !countryHintFree ? HINT_COST : 0) +
+    (state.hints.carrierNames ? HINT_COST : 0) +
+    (state.hints.destNames ? HINT_COST : 0) +
+    state.revealedCities.length * CITY_REVEAL_COST;
 
   const act = useCallback(() => {
     lastActRef.current = Date.now();
@@ -283,12 +327,19 @@ export function useGameEngine(
     (idx: number) => {
       const airport = batchRef.current[idx];
       if (!airport) return;
-      const choices = makeChoices(airports, airport);
+      const batchCodes = new Set(batchRef.current.map((a) => a.iata));
+      const choices = makeChoices(airports, airport, batchCodes);
+      // Distractors count as "seen" too — without this, a famous airport can
+      // sit in the options one round and come back as the answer soon after.
+      for (const c of choices) {
+        if (!c.ok) usedRef.current.add(c.airport.iata);
+      }
+      saveUsedToday(usedRef.current);
       const fact = makeFact(airport, byCode);
       lastActRef.current = Date.now();
       dispatch({ type: 'START_ROUND', idx, choices, fact });
     },
-    [airports, byCode],
+    [airports, byCode, usedRef],
   );
 
   const startBatch = useCallback(() => {
@@ -320,13 +371,30 @@ export function useGameEngine(
       const choice = state.choices[idx];
       if (!choice) return;
       const points = choice.ok ? roundPoints(hintsCostThisRound) : 0;
-      dispatch({ type: 'PICK', idx, ok: choice.ok, points });
+      // Every correct answer earns a stamp — ten right answers fill a page.
+      // The day-scoped country set no longer gates the award, only whether
+      // this one gets the reveal-screen press (`firstVisit`).
+      let stamp: StampRecord | null = null;
+      if (choice.ok && currentAirport) {
+        const firstVisit = !stampedRef.current.has(currentAirport.country);
+        if (firstVisit) {
+          stampedRef.current.add(currentAirport.country);
+          saveStampedToday(stampedRef.current);
+        }
+        stamp = {
+          iata: currentAirport.iata,
+          continent: currentAirport.continent,
+          firstVisit,
+          slots: stampSlots(currentAirport, todayUTC()),
+        };
+      }
+      dispatch({ type: 'PICK', idx, ok: choice.ok, points, stamp, now: Date.now() });
       if (revealTimerRef.current != null) window.clearTimeout(revealTimerRef.current);
       revealTimerRef.current = window.setTimeout(() => {
         dispatch({ type: 'REVEAL' });
       }, ANSWER_REVEAL_DELAY_MS);
     },
-    [act, hintsCostThisRound, state.answered, state.choices],
+    [act, currentAirport, hintsCostThisRound, stampedRef, state.answered, state.choices],
   );
 
   const useHint = useCallback(
@@ -358,12 +426,22 @@ export function useGameEngine(
     if (nextIdx >= Math.min(BATCH_SIZE, batchRef.current.length)) {
       if (batchStartRef.current != null) {
         accumulateTime(Math.floor((Date.now() - batchStartRef.current) / 1000));
+        // One anonymous row per finished batch (fire-and-forget, same trust
+        // model as the visits ping). Duration runs to the final answer/skip
+        // (batchEndMs), not to this button click.
+        reportBatch({
+          durationSeconds: Math.max(0, Math.floor(((state.batchEndMs ?? Date.now()) - batchStartRef.current) / 1000)),
+          score: state.score,
+          correct: state.correct,
+          hintsUsed: state.hintsUsedTotal,
+          stamps: state.stamps.length,
+        });
       }
-      dispatch({ type: 'GO_TO_SUMMARY' });
+      dispatch({ type: 'GO_TO_SUMMARY', now: Date.now() });
     } else {
       startRound(nextIdx);
     }
-  }, [startRound, state.roundIdx]);
+  }, [startRound, state.batchEndMs, state.correct, state.hintsUsedTotal, state.roundIdx, state.score, state.stamps.length]);
 
   const goHome = useCallback(() => {
     act();
@@ -448,7 +526,7 @@ export function useGameEngine(
     const id = setInterval(() => {
       const idleSeconds = (Date.now() - lastActRef.current) / 1000;
       if (idleSeconds > IDLE_SKIP_SECONDS) {
-        dispatch({ type: 'SKIP_ROUND' });
+        dispatch({ type: 'SKIP_ROUND', now: Date.now() });
       } else if (idleSeconds > IDLE_NUDGE_SECONDS) {
         dispatch({ type: 'SET_NUDGE', value: true });
       }
@@ -462,6 +540,7 @@ export function useGameEngine(
       currentAirport,
       byCode,
       hintsUsedThisRound,
+      countryHintFree,
       batchStartMs: batchStartRef.current,
       start,
       pick,
@@ -483,6 +562,7 @@ export function useGameEngine(
       currentAirport,
       byCode,
       hintsUsedThisRound,
+      countryHintFree,
       start,
       // batchStartRef.current is intentionally read fresh each render (see
       // above) rather than added here — refs aren't reactive dependencies.
