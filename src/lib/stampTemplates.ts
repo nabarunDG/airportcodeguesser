@@ -310,19 +310,23 @@ export const STAMP_TEMPLATES: StampTemplate[] = [
     font: 'wide',
     ornaments: 'aircraft glyph · double rule',
     extra: null,
-    viewBox: '0 0 124 124',
+    // 8 units taller than the other round dies: the city line used to sit at
+    // y=108 with the inner shield's bottom at ≈110 — baseline on the border.
+    // Extending the shields and dropping city to y=110 gives it 8 units of
+    // clearance (see design handoff "SA Consular stamp overlap").
+    viewBox: '0 0 124 132',
     width: 116,
     note: 'Shield with the mode-of-entry glyph; the tallest centre field of the six.',
     draw: (s) =>
-      `<path class="gc-die" d="${shield(62, 8, 100, 108)}" stroke-width="2.5"/>` +
-      `<path class="gc-die" d="${shield(62, 14, 88, 96)}" stroke-width="0.9"/>` +
+      `<path class="gc-die" d="${shield(62, 8, 100, 116)}" stroke-width="2.5"/>` +
+      `<path class="gc-die" d="${shield(62, 14, 88, 104)}" stroke-width="0.9"/>` +
       fit(s.country.toUpperCase(), 62, 32, 68, 8.5, 1.6, F.wide, 'middle', 'country') +
       `<g transform="translate(54 36) scale(0.62)">${PLANE}</g>` +
       fit(s.code, 62, 76, 52, 21, 2.4, F.mono, 'middle', 'code') +
       '<line class="gc-die" x1="30" y1="83" x2="94" y2="83" stroke-width="1.4"/>' +
       '<line class="gc-die" x1="30" y1="86" x2="94" y2="86" stroke-width="0.6"/>' +
-      fit(s.date, 62, 98, 66, 10, 1, F.wide, 'middle', 'date') +
-      fit(s.city.toUpperCase(), 62, 108, 62, 6.5, 1.2, F.wide, 'middle', 'city'),
+      fit(s.date, 62, 99, 66, 10, 1, F.wide, 'middle', 'date') +
+      fit(s.city.toUpperCase(), 62, 110, 62, 6.5, 1.2, F.wide, 'middle', 'city'),
   },
   {
     id: 'transit',

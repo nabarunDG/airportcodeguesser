@@ -8,6 +8,8 @@ interface Props {
   stamps: StampRecord[];
   score: number;
   flightNo: string;
+  /** The check-in airport — printed on the holder page as the journey's origin. */
+  homeAirport: string | null;
   onClose: () => void;
 }
 
@@ -42,7 +44,7 @@ const SPOTS: Array<[number, number]> = [
  * the summary's fixed space belongs to the boarding pass and Flight Leaders,
  * and a spread this tall would bury the leaderboard.
  */
-export default function PassportBook({ stamps, score, flightNo, onClose }: Props) {
+export default function PassportBook({ stamps, score, flightNo, homeAirport, onClose }: Props) {
   const [closing, setClosing] = useState(false);
   const timers = useRef<number[]>([]);
 
@@ -107,6 +109,12 @@ export default function PassportBook({ stamps, score, flightNo, onClose }: Props
                   <span className="gc-pp-l">Status</span>
                   <span className="gc-pp-v">{ffTier(score)}</span>
                 </div>
+                {homeAirport && (
+                  <div>
+                    <span className="gc-pp-l">Home airport</span>
+                    <span className="gc-pp-v">{homeAirport}</span>
+                  </div>
+                )}
                 <div>
                   <span className="gc-pp-l">Stamps</span>
                   <span className="gc-pp-v">{stamps.length}</span>

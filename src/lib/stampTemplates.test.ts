@@ -137,6 +137,19 @@ describe('die output', () => {
     expect(svg).toContain('lengthAdjust="spacingAndGlyphs"');
   });
 
+  it('keeps the Consular city line clear of the inner shield border', () => {
+    // The shipped SA bug: city baseline y=108 sat on the inner shield's
+    // bottom (≈110). The die is now 8 units taller (viewBox 124×132) and the
+    // city clears the extended shield's bottom (14 + 104 = 118) by 8 units.
+    const consular = STAMP_TEMPLATES.find((t) => t.id === 'consular')!;
+    expect(consular.viewBox).toBe('0 0 124 132');
+    const gru = ALL.find((a) => a.iata === 'GRU')!;
+    const svg = consular.draw(stampSlots(gru, DATE), IDS);
+    const cityY = Number(/y="([\d.]+)"[^>]*data-slot="city"/.exec(svg)![1]);
+    const innerShieldBottom = 14 + 104;
+    expect(innerShieldBottom - cityY).toBeGreaterThanOrEqual(8);
+  });
+
   it('only carries coords/elevation on the dies that declare them', () => {
     const nbo = ALL.find((a) => a.iata === 'NBO')!;
     const slots = stampSlots(nbo, DATE);

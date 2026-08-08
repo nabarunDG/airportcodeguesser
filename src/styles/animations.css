@@ -2,6 +2,20 @@
    (docs/design-handoff/design/Airport Code Guesser.dc.html). */
 
 @keyframes gcBelt { from { background-position-x: 0; } to { background-position-x: -56px; } }
+
+/* "Runway fade" between screens: the incoming screen fades in with a ~8px
+   upward lift, ~200ms ease-out (design handoff rule 10). The wrapper is
+   keyed on the screen name in GameApp, so it replays on each transition. */
+@keyframes gcRunwayIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.gc-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  animation: gcRunwayIn 200ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gc-screen { animation: none; }
+}
 @keyframes gcBag { from { left: -90px; } to { left: 110%; } }
 @keyframes gcDrift { from { transform: translateX(-140px); } to { transform: translateX(calc(100vw + 140px)); } }
 @keyframes gcChip { from { opacity: 0; transform: translateY(7px) scale(0.96); } to { opacity: 1; transform: none; } }

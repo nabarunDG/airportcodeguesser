@@ -69,7 +69,10 @@ figcaption { font-size: 11px; margin-top: var(--space-1); color: color-mix(in sr
 }
 .input {
   width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
-  font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
+  /* ≥16px, always: iOS Safari/DuckDuckGo auto-zoom any focused input whose
+     font-size is under 16px (the old 14px reproduced it on the summary).
+     Never "fix" this by disabling user zoom — that's an a11y violation. */
+  font-size: 16px; color: var(--color-text); caret-color: var(--color-accent);
   background: var(--color-surface);
   border: 1px solid var(--color-divider); border-radius: var(--radius-md);
 }

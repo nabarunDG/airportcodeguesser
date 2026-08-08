@@ -1,13 +1,8 @@
 import type { GameEngine } from '../../../hooks/useGameEngine';
 import { weekRangeDisplay } from '../../../lib/gameLogic';
-import HomeAirportForm from './HomeAirportForm';
 
 interface Props {
   engine: GameEngine;
-  // Only the Summary screen (right after finishing a batch) shows the pinned
-  // "add your airport" row inline in the table — the standalone screen
-  // (reached pre-game from Home) is a pure read of the same weekly board.
-  showPrompt?: boolean;
 }
 
 /**
@@ -15,12 +10,13 @@ interface Props {
  * and the sortable ranked table. Shared between the standalone Leaderboard
  * screen and the Summary screen (rendered as the boarding pass's "stub"),
  * so both read from the same weekly data with no duplicated table logic.
+ * Scores post themselves to the check-in airport now, so there's no inline
+ * "add your airport" form anymore.
  */
-export default function FlightLeadersBoard({ engine, showPrompt }: Props) {
+export default function FlightLeadersBoard({ engine }: Props) {
   const { state } = engine;
   const byAvg = state.lbSort === 'avg';
   const arrow = (active: boolean) => (active ? (state.lbDir === 'desc' ? '▼' : '▲') : '⇅');
-  const showPromptRow = Boolean(showPrompt) && !state.saved;
   const { pax, points } = state.lbToday;
 
   return (
@@ -64,18 +60,6 @@ export default function FlightLeadersBoard({ engine, showPrompt }: Props) {
           </tr>
         </thead>
         <tbody>
-          {showPromptRow && (
-            <tr>
-              <td colSpan={6} style={{ padding: '10px 8px' }}>
-                <HomeAirportForm
-                  homeInput={state.homeInput}
-                  homeErr={state.homeErr}
-                  onChange={engine.setHomeInput}
-                  onSubmit={() => void engine.saveScore()}
-                />
-              </td>
-            </tr>
-          )}
           {state.lbRows.map((r) => (
             <tr key={r.airport}>
               <td style={{ textAlign: 'center', color: 'var(--color-neutral-500)', fontVariantNumeric: 'tabular-nums' }}>{r.rank}</td>

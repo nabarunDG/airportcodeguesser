@@ -6,7 +6,9 @@ import { startMetricsPing } from './lib/metrics';
 import Header from './components/Header';
 import CloudBackground from './components/CloudBackground';
 import IdleDialog from './components/IdleDialog';
+import ClueNudgeToast from './components/ClueNudgeToast';
 import HomeScreen from './components/screens/HomeScreen';
+import CheckinScreen from './components/screens/CheckinScreen';
 import GameScreen from './components/screens/GameScreen';
 import RevealScreen from './components/screens/RevealScreen';
 import SummaryScreen from './components/screens/SummaryScreen';
@@ -29,7 +31,16 @@ export default function GameApp({ airports, byCode }: Props) {
   const screen = useMemo(() => {
     switch (state.screen) {
       case 'home':
-        return <HomeScreen onStart={engine.start} onGoLeaderboard={engine.goLeaderboard} />;
+        return (
+          <HomeScreen
+            mode={state.mode}
+            onSetMode={engine.setMode}
+            onStart={engine.goCheckin}
+            onGoLeaderboard={engine.goLeaderboard}
+          />
+        );
+      case 'checkin':
+        return <CheckinScreen airports={airports} byCode={byCode} homeAirport={state.homeAirport} onCheckIn={engine.checkIn} />;
       case 'game':
         return <GameScreen engine={engine} />;
       case 'reveal':
@@ -41,7 +52,7 @@ export default function GameApp({ airports, byCode }: Props) {
       default:
         return null;
     }
-  }, [state.screen, engine]);
+  }, [state.screen, state.mode, state.homeAirport, engine, airports, byCode]);
 
   return (
     <div
@@ -56,9 +67,13 @@ export default function GameApp({ airports, byCode }: Props) {
       }}
     >
       <CloudBackground />
-      <Header inPlay={inPlay} roundNo={state.roundIdx + 1} score={state.score} onGoHome={engine.goHome} />
-      {screen}
+      <Header inPlay={inPlay} mode={state.mode} roundNo={state.roundIdx + 1} score={state.score} onGoHome={engine.goHome} />
+      {/* Keyed on the screen name so the runway fade replays per transition. */}
+      <div key={state.screen} className="gc-screen">
+        {screen}
+      </div>
       {state.nudge && <IdleDialog onDismiss={engine.dismissNudge} />}
+      {state.clueNudge && !state.nudge && <ClueNudgeToast onDismiss={engine.act} />}
     </div>
   );
 }

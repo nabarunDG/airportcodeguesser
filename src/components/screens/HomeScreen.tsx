@@ -1,38 +1,77 @@
-import BaggageCarousel from '../BaggageCarousel';
+import { useCallback, useRef } from 'react';
+import type { Mode } from '../../types';
 import SplitFlapLogo from '../SplitFlapLogo';
+import TrademarkFooter from '../TrademarkFooter';
+import ModeSwitch from './home/ModeSwitch';
+import SafetyCard from './home/SafetyCard';
 import './HomeScreen.css';
 
 interface Props {
+  mode: Mode;
+  onSetMode: (mode: Mode) => void;
   onStart: () => void;
   onGoLeaderboard: () => void;
 }
 
-export default function HomeScreen({ onStart, onGoLeaderboard }: Props) {
+export default function HomeScreen({ mode, onSetMode, onStart, onGoLeaderboard }: Props) {
+  const briefingRef = useRef<HTMLDivElement>(null);
+  const scrollToBriefing = useCallback(() => {
+    briefingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
   return (
     <div className="gc-home">
       <div className="gc-home-inner">
         <div className="gc-home-tiles">
           <SplitFlapLogo size="lg" />
         </div>
-        <h1 style={{ fontSize: 34, margin: 0 }}>Name that airport</h1>
-        <p style={{ fontSize: 14.5, color: 'var(--color-neutral-400)', margin: 0 }}>
-          Read clues and pick the right airport. 10 airport codes per boarding group. No clock, no pressure. Hints
-          cost you −2 points. Defend your airport's spot — new week, new board.
-        </p>
+        <h1 style={{ fontSize: 30, margin: 0 }}>Name that airport</h1>
+        {/* A collection, never a mission: "how many … can you collect", not
+            "collect all 10" (design handoff rule 3). */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 320 }}>
+          <p style={{ fontSize: 14, color: 'var(--color-neutral-400)', margin: 0, lineHeight: 1.55 }}>
+            Use clues to pick the airport. See how many passport stamps you can collect, up to 10.
+          </p>
+          <p style={{ fontSize: 14, color: 'var(--color-neutral-400)', margin: 0, lineHeight: 1.55 }}>
+            No clock, no pressure.
+          </p>
+        </div>
+        <ModeSwitch mode={mode} onSetMode={onSetMode} />
         <div className="gc-home-actions">
-          <button className="btn btn-primary btn-block" onClick={onStart} style={{ minHeight: 44, fontSize: 15 }}>
-            Start boarding
+          {/* Solid accent pill, same treatment as the reveal screen's "Next
+              code" — the journey's front door carries the most ink. */}
+          <button
+            onClick={onStart}
+            style={{
+              font: 'inherit',
+              fontFamily: 'var(--font-heading)',
+              fontWeight: 500,
+              fontSize: 15,
+              cursor: 'pointer',
+              width: '100%',
+              minHeight: 44,
+              border: 0,
+              borderRadius: 24,
+              background: 'var(--color-accent-600)',
+              color: 'var(--color-accent-100)',
+            }}
+          >
+            Check in
           </button>
-          <button className="btn btn-secondary btn-block" onClick={onGoLeaderboard} style={{ minHeight: 44 }}>
+          <button className="btn btn-secondary btn-block" onClick={onGoLeaderboard} style={{ minHeight: 44, borderRadius: 24 }}>
             Flight Leaders
           </button>
         </div>
-        <div className="gc-home-belt">
-          <BaggageCarousel />
-        </div>
-        <p style={{ fontSize: 11, color: 'var(--color-neutral-600)', margin: '4px 0 0' }}>
-          10 points per correct answer · max 100 points per group
-        </p>
+        <button className="gc-home-scrollcue" onClick={scrollToBriefing} type="button">
+          <span>Safety briefing</span>
+          <svg width="14" height="8" viewBox="0 0 14 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+            <path d="M1 1l6 6 6-6" />
+          </svg>
+        </button>
+      </div>
+      <div className="gc-home-briefing" ref={briefingRef}>
+        <SafetyCard />
+        <TrademarkFooter />
       </div>
     </div>
   );

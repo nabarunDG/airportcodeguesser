@@ -1,10 +1,9 @@
 import { useMemo, type CSSProperties } from 'react';
 import { useDestinationNames } from '../../../hooks/useDestinationNames';
-import type { Airport, ClueKey, HintKey } from '../../../types';
+import type { Airport, ClueKey, HintKey, Mode } from '../../../types';
 import {
   CARRIER_DISPLAY_CAP,
   DEST_DISPLAY_CAP,
-  HINT_COST,
   buildCarrierList,
   buildDestCache,
 } from '../../../lib/gameLogic';
@@ -12,10 +11,9 @@ import {
 interface Props {
   airport: Airport;
   byCode: Record<string, Airport>;
+  mode: Mode;
   clues: { car: boolean; dest: boolean };
   hints: { country: boolean; carrierNames: boolean; destNames: boolean };
-  /** Small regional airports are unguessable without a geographic anchor, so their country hint is free. */
-  countryHintFree: boolean;
   disabled: boolean;
   onPull: (key: ClueKey) => void;
   onUseHint: (key: HintKey) => void;
@@ -33,9 +31,9 @@ const pillStyle = (pulled: boolean): CSSProperties => ({
   minHeight: 34,
 });
 
-// Paid reveals (cost points) get an accent-bordered pill so they read as
-// distinct from the free clue pulls above.
-const hintPillStyle = (done: boolean, disabled: boolean): CSSProperties => ({
+// Reveals-on-demand (FF) get an accent-bordered pill so they read as distinct
+// from the plain clue pulls — but they're free now, like everything else.
+const revealPillStyle = (done: boolean, disabled: boolean): CSSProperties => ({
   font: 'inherit',
   fontSize: 12.5,
   cursor: done || disabled ? 'not-allowed' : 'pointer',
@@ -47,7 +45,13 @@ const hintPillStyle = (done: boolean, disabled: boolean): CSSProperties => ({
   minHeight: 34,
 });
 
-export default function CluePills({ airport, byCode, clues, hints, countryHintFree, disabled, onPull, onUseHint }: Props) {
+/**
+ * The clue rail. Every pill here is free in both modes (FF's only priced
+ * reveal is the per-option city hint, over in ChoiceList); General Boarding
+ * additionally includes carrier/destination names up front.
+ */
+export default function CluePills({ airport, byCode, mode, clues, hints, disabled, onPull, onUseHint }: Props) {
+  const gb = mode === 'gb';
   const destNames = useDestinationNames();
   // Raw data is memoized per-airport only — the carrier shuffle order must
   // stay stable for the whole round; the dest cache is cheap and
@@ -74,21 +78,25 @@ export default function CluePills({ airport, byCode, clues, hints, countryHintFr
   const carrierMore = Math.max(0, carrierList.length - CARRIER_DISPLAY_CAP);
   const destMore = Math.max(0, destCache.length - DEST_DISPLAY_CAP);
 
+  const showCarrierNames = gb || hints.carrierNames;
+  const showDestNames = gb || hints.destNames;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>Clues:</span>
         <button onClick={() => onPull('car')} style={pillStyle(clues.car)}>
-          Airlines
+          {clues.car ? 'Airlines ✓' : 'Airlines'}
         </button>
         <button onClick={() => onPull('dest')} style={pillStyle(clues.dest)}>
-          Destinations
+          {clues.dest ? 'Destinations ✓' : 'Destinations'}
         </button>
         <button
           onClick={() => onUseHint('country')}
           disabled={hints.country || disabled}
-          style={hintPillStyle(hints.country, disabled)}
+          style={revealPillStyle(hints.country, disabled)}
         >
-          {hints.country ? 'Country ✓' : countryHintFree ? 'Reveal country — free' : `Reveal country −${HINT_COST} pts`}
+          {hints.country ? 'Country ✓' : 'Reveal country'}
         </button>
       </div>
 
@@ -96,17 +104,21 @@ export default function CluePills({ airport, byCode, clues, hints, countryHintFr
         <div style={{ animation: 'gcChip 0.35s ease', display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
           {visibleCarriers.map((c) => (
             <span key={c.code} className="tag tag-neutral" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-              {hints.carrierNames ? `${c.code} ${c.name}` : c.code}
+              {showCarrierNames ? `${c.code} ${c.name}` : c.code}
             </span>
           ))}
-          {carrierMore > 0 && <span style={{ fontSize: 11, color: 'var(--color-neutral-500)' }}>+{carrierMore} more</span>}
-          {!hints.carrierNames && (
+          {carrierMore > 0 && (
+            <span style={{ fontSize: 11, color: 'var(--color-neutral-500)' }}>
+              +{carrierMore} more{gb ? ' · names included in GB' : ''}
+            </span>
+          )}
+          {!gb && !hints.carrierNames && (
             <button
               onClick={() => onUseHint('carrierNames')}
               disabled={disabled}
-              style={{ ...hintPillStyle(false, disabled), fontSize: 11, padding: '5px 11px', minHeight: 28 }}
+              style={{ ...revealPillStyle(false, disabled), fontSize: 11, padding: '5px 11px', minHeight: 28 }}
             >
-              Airline names −{HINT_COST} pts
+              Airline names — free
             </button>
           )}
         </div>
@@ -122,18 +134,18 @@ export default function CluePills({ airport, byCode, clues, hints, countryHintFr
             const city = byCode[d.code]?.city_name ?? destNames[d.code];
             return (
               <span key={d.code} className="tag tag-accent-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
-                {hints.destNames && city ? `${d.code} ${city}` : d.code}
+                {showDestNames && city ? `${d.code} ${city}` : d.code}
               </span>
             );
           })}
           {destMore > 0 && <span style={{ fontSize: 11, color: 'var(--color-neutral-500)' }}>+{destMore} more</span>}
-          {!hints.destNames && (
+          {!gb && !hints.destNames && (
             <button
               onClick={() => onUseHint('destNames')}
               disabled={disabled}
-              style={{ ...hintPillStyle(false, disabled), fontSize: 11, padding: '5px 11px', minHeight: 28 }}
+              style={{ ...revealPillStyle(false, disabled), fontSize: 11, padding: '5px 11px', minHeight: 28 }}
             >
-              Destination names −{HINT_COST} pts
+              Destination names — free
             </button>
           )}
         </div>

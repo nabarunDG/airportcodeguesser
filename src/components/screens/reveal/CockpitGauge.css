@@ -1,0 +1,25 @@
+/* Cockpit-instrument colors — like the safety card, this is a deliberate
+   artifact surface (a physical instrument photographed into the page), so the
+   bezel/face/hub shades come from the reference dials in the design package's
+   assets/gauges/*.svg rather than the Nocturne ramp. Needle, ticks, labels
+   and the bonus-zone arc DO use tokens. */
+.gc-gauge {
+  --gg-plate: #191b26;
+  --gg-bezel: #0c0d13;
+  --gg-face: #14151d;
+  --gg-face-ring: #33363f;
+  --gg-screw: #2e3038;
+  --gg-screw-ring: #4a4d59;
+  --gg-hub: #22242e;
+  display: block;
+}
+.gc-gauge-needle {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transition: transform 0.7s cubic-bezier(0.3, 1.4, 0.4, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gc-gauge-needle {
+    transition: none;
+  }
+}

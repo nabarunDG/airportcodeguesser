@@ -3,9 +3,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   text-align: center;
-  padding: 24px 20px 64px;
+  padding: 24px 20px 24px;
   position: relative;
 }
 .gc-home-inner {
@@ -13,8 +12,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   max-width: 420px;
+  /* Fill the first viewport (minus the header) so the safety briefing sits
+     below the fold, behind the scroll cue — the "phone fold" in the mock. */
+  min-height: calc(100dvh - 140px);
+  justify-content: center;
 }
 .gc-home-tiles {
   display: flex;
@@ -26,10 +29,33 @@
   gap: 10px;
   width: 100%;
   max-width: 280px;
-  margin-top: 6px;
+  margin-top: 2px;
 }
-.gc-home-belt {
-  width: 100%;
-  max-width: 320px;
+.gc-home-scrollcue {
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   margin-top: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  color: var(--color-neutral-600);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.gc-home-scrollcue:hover {
+  color: var(--color-neutral-400);
+}
+.gc-home-briefing {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0 12px;
+  scroll-margin-top: 16px;
 }
