@@ -1,50 +1,86 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StampRecord } from '../../../types';
-import { ffTier } from '../../../lib/gameLogic';
+import { ffTier, fmtDistance } from '../../../lib/gameLogic';
 import PassportStamp from '../../PassportStamp';
 import './PassportBook.css';
 
 interface Props {
   stamps: StampRecord[];
   score: number;
+  /** Total great-circle distance flown this batch, printed on the holder page. */
+  totalKm: number;
   flightNo: string;
   /** The check-in airport — printed on the holder page as the journey's origin. */
   homeAirport: string | null;
+  /**
+   * Fold away on a timer. True for the flourish that plays on arriving at the
+   * summary; false when the player tapped "Open passport" and is looking at it
+   * on purpose.
+   */
+  autoClose?: boolean;
   onClose: () => void;
 }
 
-/** How long the spread stays open before folding itself away, unprompted. */
-const HOLD_MS = 1500;
+/** How long the unprompted spread stays open before folding itself away. */
+const HOLD_MS = 2600;
 const FOLD_MS = 320;
 /** Stamps land in the order they were earned, so the page replays the route flown. */
 const STAMP_STAGGER_MS = 110;
-const COVER_MS = 620;
+/**
+ * Closed-cover dwell plus the swing, matching the `gcPpCoverOpen` delay and
+ * duration in PassportBook.css. The dwell exists so the cover registers as a
+ * passport before it opens — without it the book was already open by the time
+ * anyone looked. Keep this in step with the CSS or the stamps land early.
+ */
+const COVER_MS = 560 + 680;
 
 // Hand-placed rather than gridded: three pairs deliberately clip each other,
-// the rest breathe. Percentages of the stamp field — `top` stops at 62% so the
-// tallest die (a round one, ~84px) still clears the bottom of the page.
+// the rest breathe. Percentages of the stamp field — `top` stops at 70% so the
+// tallest die still clears the bottom of the page.
+//
+// Retuned when the spread took on real passport proportions: the page went
+// from landscape to portrait, so the old tops bunched everything into the
+// upper half and left the bottom third bare.
 const SPOTS: Array<[number, number]> = [
   [1, 0],
   [40, 3],
-  [28, 11],
-  [3, 24],
-  [46, 26],
-  [20, 38],
-  [45, 46],
-  [1, 48],
-  [26, 58],
-  [48, 62],
+  [26, 12],
+  [3, 27],
+  [46, 29],
+  [19, 43],
+  [45, 52],
+  [1, 54],
+  [26, 66],
+  [47, 70],
 ];
 
+/** Die width on the page. A touch narrower than before — the portrait page is narrower too. */
+const STAMP_WIDTH = 78;
+
 /**
- * The passport spread that opens as the summary screen arrives: cover swings,
- * paper rises behind it, then the batch's stamps land one after another.
+ * The passport spread: cover swings, paper rises behind it, then the batch's
+ * stamps land one after another.
  *
- * It closes itself. This is a transition rather than a permanent block —
- * the summary's fixed space belongs to the boarding pass and Flight Leaders,
- * and a spread this tall would bury the leaderboard.
+ * On arrival at the summary it plays unprompted and folds itself away — a
+ * transition rather than a block, because the summary's fixed space belongs
+ * to the boarding pass and Flight Leaders, and a spread this tall would bury
+ * the leaderboard.
+ *
+ * Reopened from the row, it stays put (autoClose=false). A filled page is the
+ * thing players actually want to screenshot, and no timer is generous enough
+ * for that — framing a capture takes far longer than any flourish should sit
+ * on screen. Dismissal is then always the player's: the button, the backdrop,
+ * or Escape.
  */
-export default function PassportBook({ stamps, score, flightNo, homeAirport, onClose }: Props) {
+export default function PassportBook({
+  stamps,
+  score,
+  totalKm,
+  flightNo,
+  homeAirport,
+  autoClose = true,
+  onClose,
+}: Props) {
   const [closing, setClosing] = useState(false);
   const timers = useRef<number[]>([]);
 
@@ -53,7 +89,21 @@ export default function PassportBook({ stamps, score, flightNo, homeAirport, onC
     timers.current.push(window.setTimeout(onClose, FOLD_MS));
   }, [onClose]);
 
+  // Unconditional, because the auto-close effect below bails early when the
+  // player opened the book themselves — and beginClose's fold timer still
+  // needs clearing on unmount either way.
+  useEffect(
+    () => () => {
+      timers.current.forEach(window.clearTimeout);
+      timers.current = [];
+    },
+    [],
+  );
+
   useEffect(() => {
+    if (!autoClose) return;
+    // Hold from when the last stamp lands, not from mount, so a ten-stamp page
+    // gets the same reading time as a four-stamp one.
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const landed = reduced ? 0 : COVER_MS + stamps.length * STAMP_STAGGER_MS;
     timers.current.push(window.setTimeout(() => setClosing(true), landed + HOLD_MS));
@@ -62,7 +112,7 @@ export default function PassportBook({ stamps, score, flightNo, homeAirport, onC
       timers.current.forEach(window.clearTimeout);
       timers.current = [];
     };
-  }, [onClose, stamps.length]);
+  }, [autoClose, onClose, stamps.length]);
 
   // Escape closes it early, as does clicking the backdrop or the button.
   useEffect(() => {
@@ -119,6 +169,14 @@ export default function PassportBook({ stamps, score, flightNo, homeAirport, onC
                   <span className="gc-pp-l">Stamps</span>
                   <span className="gc-pp-v">{stamps.length}</span>
                 </div>
+                <div>
+                  <span className="gc-pp-l">Points</span>
+                  <span className="gc-pp-v">{score}</span>
+                </div>
+                <div>
+                  <span className="gc-pp-l">Distance flown</span>
+                  <span className="gc-pp-v">{totalKm > 0 ? fmtDistance(totalKm) : '—'}</span>
+                </div>
               </div>
             </div>
             <div className="gc-pp-mrz">{mrz}</div>
@@ -137,7 +195,7 @@ export default function PassportBook({ stamps, score, flightNo, homeAirport, onC
                   <span key={`${stamp.iata}-${i}`} style={{ left: `${left}%`, top: `${top}%`, zIndex: i + 1 }}>
                     <PassportStamp
                       stamp={stamp}
-                      width={84}
+                      width={STAMP_WIDTH}
                       animate
                       delayMs={COVER_MS + i * STAMP_STAGGER_MS}
                     />

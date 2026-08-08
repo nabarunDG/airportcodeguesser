@@ -27,8 +27,17 @@ export default function SummaryScreen({ engine }: Props) {
   // into the row below — a transition, not a block, so Flight Leaders keeps
   // its place. Reopenable from the row.
   const [passportOpen, setPassportOpen] = useState(state.stamps.length > 0);
-  const closePassport = useCallback(() => setPassportOpen(false), []);
-  const onOpenPassport = useCallback(() => setPassportOpen(true), []);
+  // Reopening it is a deliberate act — usually to screenshot the page — so
+  // that one waits to be dismissed instead of folding itself away.
+  const [reopened, setReopened] = useState(false);
+  const closePassport = useCallback(() => {
+    setPassportOpen(false);
+    setReopened(false);
+  }, []);
+  const onOpenPassport = useCallback(() => {
+    setReopened(true);
+    setPassportOpen(true);
+  }, []);
   // Static, not a live ticking duration: "time on board" is the flight time
   // for the batch, fixed when its last round was answered (state.batchEndMs).
   const batchTime =
@@ -243,7 +252,15 @@ export default function SummaryScreen({ engine }: Props) {
       <TrademarkFooter />
 
       {passportOpen && state.stamps.length > 0 && (
-        <PassportBook stamps={state.stamps} score={state.score} flightNo={flightNo} homeAirport={state.homeAirport} onClose={closePassport} />
+        <PassportBook
+          stamps={state.stamps}
+          score={state.score}
+          totalKm={totalKm}
+          flightNo={flightNo}
+          homeAirport={state.homeAirport}
+          autoClose={!reopened}
+          onClose={closePassport}
+        />
       )}
     </div>
   );
