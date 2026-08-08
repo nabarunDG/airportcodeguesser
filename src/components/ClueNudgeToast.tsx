@@ -42,7 +42,7 @@ export default function ClueNudgeToast({ onDismiss }: Props) {
         onClick={onDismiss}
         aria-label="Dismiss"
         style={{
-          font: 'inherit',
+          fontFamily: 'inherit',
           fontSize: 11,
           cursor: 'pointer',
           color: 'var(--color-neutral-600)',

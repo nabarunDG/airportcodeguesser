@@ -7,6 +7,9 @@ dist/
 *.local
 *.tsbuildinfo
 
+# local editor/agent config (e.g. the dev-server launch profile)
+.claude/
+
 # original design-handoff zip is kept locally for reference; the extracted
 # copy under docs/design-handoff/ is what's committed
 /Gate Check airport guessing game.zip

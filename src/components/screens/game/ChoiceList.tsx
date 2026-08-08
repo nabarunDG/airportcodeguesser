@@ -49,7 +49,7 @@ export default function ChoiceList({ choices, mode, answered, answeredIdx, revea
                 onClick={() => onRevealCity(i)}
                 aria-label={`City hint for ${c.airport.name}, costs ${FF_CITY_HINT_COST} point`}
                 style={{
-                  font: 'inherit',
+                  fontFamily: 'inherit',
                   fontSize: 11,
                   cursor: 'pointer',
                   flex: 'none',
@@ -73,7 +73,7 @@ export default function ChoiceList({ choices, mode, answered, answeredIdx, revea
             <button
               onClick={() => onPick(i)}
               style={{
-                font: 'inherit',
+                fontFamily: 'inherit',
                 textAlign: 'left',
                 cursor: 'pointer',
                 flex: 1,

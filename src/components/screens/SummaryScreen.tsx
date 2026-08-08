@@ -102,7 +102,7 @@ export default function SummaryScreen({ engine }: Props) {
           <button
             onClick={engine.start}
             style={{
-              font: 'inherit',
+              fontFamily: 'inherit',
               fontSize: 12,
               fontWeight: 500,
               cursor: 'pointer',
@@ -135,7 +135,7 @@ export default function SummaryScreen({ engine }: Props) {
             <button
               onClick={onOpenPassport}
               style={{
-                font: 'inherit',
+                fontFamily: 'inherit',
                 fontSize: 11,
                 cursor: 'pointer',
                 color: 'var(--color-accent)',

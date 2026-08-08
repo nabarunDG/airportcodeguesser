@@ -161,7 +161,6 @@ export default function RevealScreen({ engine }: Props) {
       <button
         onClick={engine.next}
         style={{
-          font: 'inherit',
           fontFamily: 'var(--font-heading)',
           fontWeight: 500,
           fontSize: 15,

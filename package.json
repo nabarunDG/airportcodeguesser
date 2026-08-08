@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "data:refresh": "node scripts/trim-data.mjs",
+    "data:cities": "node scripts/build-city-index.mjs",
     "pages:dev": "npm run build && wrangler pages dev ./dist",
     "d1:migrate:local": "wrangler d1 migrations apply gatecheck-leaderboard --local",
     "d1:migrate:remote": "wrangler d1 migrations apply gatecheck-leaderboard --remote"

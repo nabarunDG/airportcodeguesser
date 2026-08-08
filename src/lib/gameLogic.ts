@@ -449,33 +449,185 @@ export function scoreGaugeCalibration(mode: Mode): ScoreGaugeCalibration {
 
 /* ── Check-in ────────────────────────────────────────────────────────── */
 
+/** Lowercase and strip diacritics, so "Málaga" matches "malaga". */
+function normalize(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 /**
- * Resolves the check-in input to an airport: 3 letters that match a code are
- * that airport; otherwise the query is a city-name search resolving to the
- * best (largest, prefix-first) match — which, the dataset being airports
- * keyed by their own cities, IS the nearest airport to that city.
+ * Splits a place name into words. Compound names are the whole point: the
+ * dataset carries "Raleigh/Durham", "Basel, Switzerland/Mulhouse" and
+ * "Karlsruhe/Baden-Baden", so a search for one half has to reach the airport
+ * named for both. Same idea as `short()` in stampTemplates.ts.
  */
+function nameTokens(s: string): string[] {
+  return normalize(s).split(/[/,\s–—-]+/).filter(Boolean);
+}
+
+/**
+ * How well an airport answers a query, 0 (not at all) to 100. Bands rather
+ * than a single rule, because the old "any prefix match outranks any
+ * substring match" gave a 7-route airport an absolute veto over an 88-route
+ * one: "durham" returned MME (Durham Tees Valley) instead of RDU
+ * (Raleigh/Durham). Twelve airports in the dataset lost to a ≥3× smaller
+ * namesake that way. Scoring by match *quality* puts both Durhams in the same
+ * band, and route count then breaks the tie the way a player expects.
+ *
+ * City matches outrank airport-name matches: someone typing "durham" means
+ * the place, not a terminal.
+ */
+function matchScore(a: Airport, q: string): number {
+  const city = normalize(a.city_name);
+  let best = 0;
+  if (city === q) best = 100;
+  else {
+    const tokens = nameTokens(a.city_name);
+    if (tokens.includes(q)) best = 80;
+    else if (tokens.some((t) => t.startsWith(q))) best = 55;
+    else if (city.includes(q)) best = 30;
+  }
+  // Only worth consulting the airport's own name if the city didn't already
+  // answer better — this is what lets "Heathrow" and "Guarulhos" resolve.
+  if (best < 70) {
+    const name = normalize(a.name);
+    const tokens = nameTokens(a.name);
+    if (tokens.includes(q)) best = Math.max(best, 70);
+    else if (tokens.some((t) => t.startsWith(q))) best = Math.max(best, 45);
+    else if (name.includes(q)) best = Math.max(best, 20);
+  }
+  return best;
+}
+
+/** Airports one country may contribute before others get a look in. See searchAirports. */
+const MAX_PER_COUNTRY = 3;
+
+/**
+ * Ranked airport candidates for a typed query, best first.
+ *
+ * Returns a list rather than one pick because 21 city names in the dataset
+ * span more than one country — "london" is LHR, but also YXU (Ontario) and
+ * ELS (South Africa), and only the player knows which they meant.
+ *
+ * Deliberately quiet on short input: under 3 characters matches nothing, and
+ * exactly 3 letters is treated as an IATA code (or nothing at all), so typing
+ * "Ral" on the way to "Raleigh" doesn't jump to some unrelated airport.
+ */
+export function searchAirports(
+  all: Airport[],
+  byCode: Record<string, Airport>,
+  query: string,
+  limit = 5,
+  /**
+   * The player's IANA timezone, used only to break ties between equally good
+   * matches. Deliberately an exact-zone test rather than raw distance: a New
+   * Yorker typing "london" means Heathrow, and proximity would wrongly hand
+   * them London, Ontario (780 km) over London, UK (5,570 km). Sharing a zone
+   * with YXU — being in America/Toronto — is the signal that actually means
+   * "the nearby one".
+   */
+  timezone?: string,
+): Airport[] {
+  const q = normalize(query.trim());
+  if (q.length < 3) return [];
+  if (/^[a-z]{3}$/.test(q)) {
+    const direct = byCode[q.toUpperCase()];
+    return direct ? [direct] : [];
+  }
+  const local = (a: Airport) => (timezone && a.timezone === timezone ? 1 : 0);
+  const ranked = all
+    .map((airport) => ({ airport, score: matchScore(airport, q) }))
+    .filter((m) => m.score > 0)
+    .sort(
+      (x, y) =>
+        y.score - x.score ||
+        local(y.airport) - local(x.airport) ||
+        y.airport.routes.length - x.airport.routes.length,
+    )
+    .map((m) => m.airport);
+
+  // Cap how many one country can take, so a city with several airports can't
+  // hide its namesakes abroad: "london" must offer YXU (Ontario) and ELS
+  // (South Africa), not five London-UK runways. Overflow is appended after,
+  // so a query that only matches one country still fills the list.
+  const perCountry = new Map<string, number>();
+  const primary: Airport[] = [];
+  const overflow: Airport[] = [];
+  for (const airport of ranked) {
+    const seen = perCountry.get(airport.country) ?? 0;
+    perCountry.set(airport.country, seen + 1);
+    (seen < MAX_PER_COUNTRY ? primary : overflow).push(airport);
+  }
+  return [...primary, ...overflow].slice(0, limit);
+}
+
+/**
+ * searchAirports, widened by the city→airport index so towns and suburbs with
+ * no airport of their own still resolve ("Chapel Hill" → RDU). Index hits are
+ * appended rather than promoted: an airport actually named for the query is
+ * always the better answer, and the index only fills the gap behind it.
+ */
+export function searchAirportsWithCities(
+  all: Airport[],
+  byCode: Record<string, Airport>,
+  cityIndex: Record<string, string>,
+  query: string,
+  limit = 5,
+  timezone?: string,
+): Airport[] {
+  const direct = searchAirports(all, byCode, query, limit, timezone);
+  const q = normalize(query.trim());
+  if (q.length < 4) return direct;
+
+  const seen = new Set(direct.map((a) => a.iata));
+  const out = [...direct];
+  // Country-qualified keys first ("cambridge|gb"), then any country's match —
+  // scanning keys is cheap next to the airport pass and keeps the index shape
+  // simple.
+  for (const [key, iata] of Object.entries(cityIndex)) {
+    if (out.length >= limit) break;
+    const city = key.slice(0, key.indexOf('|'));
+    if (city !== q && !city.startsWith(q)) continue;
+    const airport = byCode[iata];
+    if (!airport || seen.has(iata)) continue;
+    seen.add(iata);
+    out.push(airport);
+  }
+  return out.slice(0, limit);
+}
+
+/** The single best match for a query, or null. Thin wrapper over searchAirports. */
 export function resolveHomeAirport(
   all: Airport[],
   byCode: Record<string, Airport>,
   query: string,
 ): Airport | null {
-  const q = query.trim();
-  if (q.length < 3) return null;
-  if (/^[a-zA-Z]{3}$/.test(q)) {
-    const direct = byCode[q.toUpperCase()];
-    if (direct) return direct;
-  }
-  if (q.length < 4) return null;
-  const needle = q.toLowerCase();
-  const matches = all.filter((a) => a.city_name.toLowerCase().includes(needle));
-  if (matches.length === 0) return null;
-  matches.sort((x, y) => {
-    const xp = x.city_name.toLowerCase().startsWith(needle) ? 0 : 1;
-    const yp = y.city_name.toLowerCase().startsWith(needle) ? 0 : 1;
-    return xp - yp || y.routes.length - x.routes.length;
-  });
-  return matches[0];
+  return searchAirports(all, byCode, query, 1)[0] ?? null;
+}
+
+export interface NearbyAirport {
+  airport: Airport;
+  km: number;
+}
+
+/** The closest airports to a point, nearest first — the honest "nearest airport". */
+export function nearestAirports(all: Airport[], lat: number, lon: number, limit = 5): NearbyAirport[] {
+  return all
+    .map((airport) => ({ airport, km: haversineKm(lat, lon, airport.latitude, airport.longitude) }))
+    .sort((x, y) => x.km - y.km)
+    .slice(0, limit);
+}
+
+/**
+ * Largest airports sharing a timezone. The last-resort seed for the check-in
+ * list: `Intl` gives the browser's zone with no permission prompt and no
+ * network, and every airport record carries one, so even a player who blocks
+ * location and never types still sees a plausible shortlist to pick from.
+ */
+export function airportsInTimezone(all: Airport[], timezone: string, limit = 5): Airport[] {
+  return all
+    .filter((a) => a.timezone === timezone)
+    .sort((x, y) => y.routes.length - x.routes.length)
+    .slice(0, limit);
 }
 
 /**

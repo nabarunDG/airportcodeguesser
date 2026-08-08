@@ -44,7 +44,7 @@ export default function ModeSwitch({ mode, onSetMode }: Props) {
         aria-checked={active}
         onClick={() => onSetMode(m)}
         style={{
-          font: 'inherit',
+          fontFamily: 'inherit',
           cursor: 'pointer',
           display: 'inline-flex',
           alignItems: 'center',

@@ -43,7 +43,6 @@ export default function HomeScreen({ mode, onSetMode, onStart, onGoLeaderboard }
           <button
             onClick={onStart}
             style={{
-              font: 'inherit',
               fontFamily: 'var(--font-heading)',
               fontWeight: 500,
               fontSize: 15,
