@@ -11,5 +11,5 @@
     "noEmit": true,
     "esModuleInterop": true
   },
-  "include": ["**/*.ts", "../src/types.ts"]
+  "include": ["**/*.ts", "../src/types.ts", "../src/lib/gameLogic.ts"]
 }

@@ -206,17 +206,26 @@ export default function PassportBook({
           </div>
         </div>
 
-        <div className="gc-pp-cover">
-          <div className="gc-pp-cover-inner">
-            <svg viewBox="0 0 64 64" width="46" aria-hidden="true">
-              <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.9" />
-              <circle cx="32" cy="32" r="23" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.6" />
-              <g transform="translate(20 20)" fill="currentColor">
-                <path d="M21 16v-2l-8-2.5V6a1.5 1.5 0 0 0-3 0v5.5L2 14v2l8-1.5V19l-2.5 1.5V22l4-1 4 1v-1.5L13 19v-4.5z" />
-              </g>
-            </svg>
-            <div className="gc-pp-cover-t">PASSPORT</div>
-            <div className="gc-pp-cover-s">GATE CHECK</div>
+        {/* Two layers on purpose: the wrap owns the passport's shape and
+            vertical centring (plain translateY — always reliable), and the
+            cover owns only the rotateY swing. Both need `transform`, and one
+            element can't animate two independent transforms at once. */}
+        <div className="gc-pp-cover-wrap">
+          <div className="gc-pp-cover">
+            {/* Real passport cover order: document type up top, emblem in the
+                middle, issuer at the bottom — GATE CHECK standing in for the
+                issuing "country". */}
+            <div className="gc-pp-cover-inner">
+              <div className="gc-pp-cover-t">PASSPORT</div>
+              <svg viewBox="0 0 64 64" width="46" aria-hidden="true">
+                <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.9" />
+                <circle cx="32" cy="32" r="23" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.6" />
+                <g transform="translate(20 20)" fill="currentColor">
+                  <path d="M21 16v-2l-8-2.5V6a1.5 1.5 0 0 0-3 0v5.5L2 14v2l8-1.5V19l-2.5 1.5V22l4-1 4 1v-1.5L13 19v-4.5z" />
+                </g>
+              </svg>
+              <div className="gc-pp-cover-s">GATE CHECK</div>
+            </div>
           </div>
         </div>
       </div>

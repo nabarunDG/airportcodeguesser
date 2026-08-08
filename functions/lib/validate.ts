@@ -3,10 +3,16 @@
 // localStorage leaderboard (a determined client can still fabricate a
 // request). See the implementation plan's leaderboard section: acceptable
 // for v1, revisit only if abuse is observed.
+import { maxScore } from '../../src/lib/gameLogic';
 
-// 10 rounds × 10 pts. Passport stamps are collectibles and carry no points,
-// so this ceiling stands.
-const MAX_BATCH_SCORE = 100;
+// The real ceiling with every bonus banked (streak upgrades, continents, the
+// date line, a long haul, FF's elite bonus) — derived from the same source
+// the client's score gauge uses, not a separate number to keep in sync by
+// hand. A batch used to cap at a flat 100 back when the only points were 10
+// per round; that stale ceiling silently rejected every real submission
+// above it once bonuses shipped; the client showed no error at all, since
+// the summary itself already believes the (correct, higher) score.
+const MAX_BATCH_SCORE = Math.max(maxScore('gb'), maxScore('ff'));
 
 export interface ValidatedSubmission {
   airport: string;

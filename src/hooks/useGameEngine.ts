@@ -374,8 +374,13 @@ function reducer(state: EngineState, action: Action): EngineState {
   }
 }
 
-/** Reveals the "PICK" transition to 'reveal' after the 1s colored-choice-state pause, unless superseded (e.g. by a skip). */
-const ANSWER_REVEAL_DELAY_MS = 1000;
+/**
+ * How long the picked choice sits highlighted — accent border on the correct
+ * answer, like a stamp of approval — before auto-advancing to the reveal
+ * screen (unless superseded by a skip). 1000ms read as a flash; long enough
+ * now to actually register before the screen moves on.
+ */
+const ANSWER_REVEAL_DELAY_MS = 1700;
 
 /**
  * A ref whose contents are computed once, lazily, on first render — unlike

@@ -5,10 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#161826" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Gate Check — name that airport</title>
-    <meta name="description" content="Guess the airport behind a 3-letter IATA code using real contextual clues — local time, weather, carriers, routes. No clock, no pressure." />
+
+    <!-- Title leads with the phrase people actually search ("airport code
+         game") rather than only the brand name — search engines and social
+         previews both show this string verbatim, so it's the single highest-
+         leverage line in the file for discoverability. -->
+    <title>Gate Check — Airport Code Game | Name That Airport</title>
+    <meta
+      name="description"
+      content="A free airport code game: guess real airports from their 3-letter IATA code using live clues — local time, weather, airlines, routes. Collect stamps. No timer, no pressure."
+    />
+    <meta name="keywords" content="airport code game, guess the airport, IATA code quiz, airport guessing game, travel trivia" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://gatecheck.game/" />
+
+    <!-- Open Graph / social previews. No og:image on purpose — a missing
+         1200x630 asset would leave a broken preview, which reads worse than
+         a plain text card. Add one and this becomes a one-line change. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Gate Check" />
+    <meta property="og:url" content="https://gatecheck.game/" />
+    <meta property="og:title" content="Gate Check — Airport Code Game" />
+    <meta
+      property="og:description"
+      content="Guess real airports from their 3-letter IATA code using live clues — local time, weather, airlines, routes. No timer, no pressure."
+    />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Gate Check — Airport Code Game" />
+    <meta
+      name="twitter:description"
+      content="Guess real airports from their 3-letter IATA code using live clues — local time, weather, airlines, routes. No timer, no pressure."
+    />
+
     <!-- © 2026 N. Dasgupta · GATE CHECK™ is a trademark of N. Dasgupta. All rights reserved. -->
     <meta name="copyright" content="© 2026 N. Dasgupta · GATE CHECK™ is a trademark of N. Dasgupta. All rights reserved." />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Gate Check",
+        "url": "https://gatecheck.game/",
+        "description": "A free airport code game: guess real airports from their 3-letter IATA code using live clues — local time, weather, airlines, routes.",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Any",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

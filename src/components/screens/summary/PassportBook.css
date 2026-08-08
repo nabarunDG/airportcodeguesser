@@ -10,9 +10,17 @@
   position: fixed;
   inset: 0;
   z-index: 40;
-  display: grid;
-  place-items: center;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Pinned near the top rather than vertically centred: on mobile the spread
+     stacks two full pages and routinely runs taller than the viewport, and
+     centring an over-tall box puts its own top edge above the fold — the
+     player has to scroll up before they can even find what they just opened.
+     overflow-y here lets the backdrop scroll internally; the fixed overlay
+     itself never moves. */
+  overflow-y: auto;
+  padding: max(24px, env(safe-area-inset-top)) 20px 24px;
   background: rgba(10, 11, 20, 0.72);
   animation: gcPpFadeIn 220ms ease-out both;
 }
@@ -31,8 +39,6 @@
 .gc-pp-book {
   position: relative;
   width: min(560px, 100%);
-  perspective: 1600px;
-  perspective-origin: 10% 50%;
   /* The cover occupies the right half, so hold the book off-centre while it's
      shut and glide it back as the spread appears — otherwise the closed
      passport sits oddly to one side of the screen. */
@@ -175,14 +181,38 @@
   position: absolute;
 }
 
-.gc-pp-cover {
-  /* One page wide, hinged at the spine, so the closed book is the size of a
-     real passport rather than a flap as wide as the open spread. */
+/* One page wide, hinged at the spine, so the closed book is the size of a
+   real passport rather than a flap as wide as the open spread.
+
+   This wrap owns ONLY shape and vertical centring — width + aspect-ratio give
+   it a real passport's proportions, and `top:50%; transform:translateY(-50%)`
+   centres it regardless of how tall the content underneath happens to be
+   (the mobile spread stacks two full pages with no fixed ratio of its own —
+   see the media query below). That centring has to live on a separate
+   element from the rotating `.gc-pp-cover`: a `top:0; bottom:0` stretch would
+   have overridden the aspect-ratio outright (which is exactly what made the
+   old single-element version a tall narrow sliver on mobile instead of a
+   passport), and `translateY` here would collide with `.gc-pp-cover`'s own
+   `transform: rotateY(...)` swing if they shared one element. */
+.gc-pp-cover-wrap {
   position: absolute;
-  top: 0;
-  bottom: 0;
   left: 50%;
   width: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+  aspect-ratio: 88 / 125;
+  /* perspective has to sit on the rotating cover's direct parent to give the
+     rotateY swing below any depth at all — it used to live on .gc-pp-book,
+     back when the cover was .gc-pp-book's direct child. The origin is
+     negative because it's expressed relative to THIS box (which starts
+     exactly at the spine, the cover's rotation hinge): a vantage point to the
+     book's left of the hinge sits to the left of this box's own left edge. */
+  perspective: 1600px;
+  perspective-origin: -60% 50%;
+}
+.gc-pp-cover {
+  position: absolute;
+  inset: 0;
   background: linear-gradient(148deg, #232a5e 0%, #161a3f 56%, #1d2350 100%);
   border-radius: 5px 10px 10px 5px;
   transform-origin: left center;

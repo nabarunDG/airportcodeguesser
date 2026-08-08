@@ -1,21 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <!-- Main game page -->
+  <!-- Single-page app: this is the only URL that actually resolves. The
+       previous version also listed /learn and /about, which 404 — no such
+       routes exist in the app (client-rendered, no router). A sitemap entry
+       that 404s is worse than no entry: a crawler that fetches it and gets a
+       not-found page loses some trust in the rest of the sitemap too. Add
+       real entries back here only once those pages exist. -->
   <url>
     <loc>https://gatecheck.game/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-  </url>
-  <!-- Airport code reference / learn page -->
-  <url>
-    <loc>https://gatecheck.game/learn</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <!-- About page -->
-  <url>
-    <loc>https://gatecheck.game/about</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
   </url>
 </urlset>

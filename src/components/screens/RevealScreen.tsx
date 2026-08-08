@@ -51,7 +51,7 @@ export default function RevealScreen({ engine }: Props) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 16,
+        gap: 13,
         textAlign: 'center',
       }}
     >
@@ -118,9 +118,14 @@ export default function RevealScreen({ engine }: Props) {
           optically centred whatever the name's length — putting the stamp in
           this row instead pushed a long name ("General Mitchell International")
           off-centre and crowded its right edge. The stamp gets its own line. */}
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 40, color: 'var(--color-accent)' }}>{currentAirport.iata}</div>
-        <h2 style={{ fontSize: 24, margin: 0, textWrap: 'balance' }}>{currentAirport.name}</h2>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {/* lineHeight:1 on the code — its inherited body leading (1.55) was
+            adding ~22px of empty space above the name below it for no reason
+            a big display number actually needs. That gap was the single
+            biggest thing standing between the fold and the stamp strip on a
+            phone screen. */}
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 40, lineHeight: 1, color: 'var(--color-accent)' }}>{currentAirport.iata}</div>
+        <h2 style={{ fontSize: 24, margin: 0, lineHeight: 1.15, textWrap: 'balance' }}>{currentAirport.name}</h2>
         <p style={{ fontSize: 14, color: 'var(--color-neutral-400)', margin: 0 }}>
           {currentAirport.city_name} · {currentAirport.country}
         </p>

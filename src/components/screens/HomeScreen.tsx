@@ -30,7 +30,7 @@ export default function HomeScreen({ mode, onSetMode, onStart, onGoLeaderboard }
             "collect all 10" (design handoff rule 3). */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 320 }}>
           <p style={{ fontSize: 14, color: 'var(--color-neutral-400)', margin: 0, lineHeight: 1.55 }}>
-            Use clues to pick the airport. See how many passport stamps you can collect, up to 10.
+            Use clues to guess the airport code. See how many passport stamps you can collect, up to 10.
           </p>
           <p style={{ fontSize: 14, color: 'var(--color-neutral-400)', margin: 0, lineHeight: 1.55 }}>
             No clock, no pressure.

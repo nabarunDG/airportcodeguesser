@@ -171,7 +171,12 @@ export default function CheckinScreen({ airports, byCode, guess, onCheckIn }: Pr
           }}
         />
 
-        {candidates.length > 0 && (
+        {/* Hidden once the player has explicitly picked a row — at that point
+            the pill and name line above already show the answer, and the same
+            list sitting there too just reads as clutter. Retyping resets
+            `chosen` (see the input's onChange) and brings the list back for
+            the new query. */}
+        {!chosen && candidates.length > 0 && (
           <div role="radiogroup" aria-label="Choose your airport" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {candidates.map((a) => {
               const active = selected?.iata === a.iata;
