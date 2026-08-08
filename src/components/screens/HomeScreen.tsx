@@ -38,24 +38,7 @@ export default function HomeScreen({ mode, onSetMode, onStart, onGoLeaderboard }
         </div>
         <ModeSwitch mode={mode} onSetMode={onSetMode} />
         <div className="gc-home-actions">
-          {/* Solid accent pill, same treatment as the reveal screen's "Next
-              code" — the journey's front door carries the most ink. */}
-          <button
-            onClick={onStart}
-            style={{
-              font: 'inherit',
-              fontFamily: 'var(--font-heading)',
-              fontWeight: 500,
-              fontSize: 15,
-              cursor: 'pointer',
-              width: '100%',
-              minHeight: 44,
-              border: 0,
-              borderRadius: 24,
-              background: 'var(--color-accent-600)',
-              color: 'var(--color-accent-100)',
-            }}
-          >
+          <button className="btn btn-pill btn-block" onClick={onStart} style={{ minHeight: 44 }}>
             Check in
           </button>
           <button className="btn btn-secondary btn-block" onClick={onGoLeaderboard} style={{ minHeight: 44, borderRadius: 24 }}>

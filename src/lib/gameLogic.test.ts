@@ -16,6 +16,8 @@ import {
   CONTINENTS,
   DATE_LINE_BONUS,
   ELITE_BONUS,
+  LONG_HAUL_BONUS,
+  LONG_HAUL_KM,
   FF_CITY_HINT_COST,
   HUB_FLOOR_MIN,
   MIN_BATCH_ROUTES,
@@ -31,12 +33,16 @@ import {
   gaugeNeedleDeg,
   haversineKm,
   journeyMilestone,
+  airportsInTimezone,
   makeChoices,
   maxScore,
+  nearestAirports,
   nextMilestone,
   resolveHomeAirport,
   roundPoints,
   scoreGaugeCalibration,
+  searchAirports,
+  searchAirportsWithCities,
   type Rng,
 } from './gameLogic';
 import { NEGATIVE_EVENTS, POSITIVE_EVENTS, rollEventLine } from './eventLines';
@@ -439,13 +445,14 @@ describe('bonuses', () => {
   });
 
   it('computes each mode’s true ceiling', () => {
-    // GB: 100 base + 3×10 streak upgrades + 15 continents + 10 date line.
-    expect(maxScore('gb')).toBe(100 + 3 * UPGRADE_BONUS + continentBonus(6) + DATE_LINE_BONUS);
-    expect(maxScore('gb')).toBe(155);
-    // FF doubles the upgrades and adds the elite bonus — the 205 that pegged
-    // the old shared 160 dial.
-    expect(maxScore('ff')).toBe(100 + 6 * UPGRADE_BONUS + continentBonus(6) + DATE_LINE_BONUS + ELITE_BONUS);
-    expect(maxScore('ff')).toBe(205);
+    // GB: 100 base + 3×10 streak upgrades + 15 continents + 10 date line + 10 long haul.
+    expect(maxScore('gb')).toBe(100 + 3 * UPGRADE_BONUS + continentBonus(6) + DATE_LINE_BONUS + LONG_HAUL_BONUS);
+    expect(maxScore('gb')).toBe(165);
+    // FF doubles the upgrades and adds the elite bonus.
+    expect(maxScore('ff')).toBe(
+      100 + 6 * UPGRADE_BONUS + continentBonus(6) + DATE_LINE_BONUS + LONG_HAUL_BONUS + ELITE_BONUS,
+    );
+    expect(maxScore('ff')).toBe(215);
   });
 
   it('calibrates the score dial to fit each mode’s ceiling on clean steps', () => {
@@ -460,8 +467,8 @@ describe('bonuses', () => {
       // Minor ticks land every 5 points on both dials.
       expect(step / (dial.minorsPerInterval + 1)).toBe(5);
     }
-    expect(scoreGaugeCalibration('gb').max).toBe(160);
-    expect(scoreGaugeCalibration('ff').max).toBe(210);
+    expect(scoreGaugeCalibration('gb').max).toBe(180);
+    expect(scoreGaugeCalibration('ff').max).toBe(240);
   });
 });
 
@@ -588,5 +595,183 @@ describe('roundPoints (FF city-hint costs)', () => {
     expect(roundPoints(FF_CITY_HINT_COST)).toBe(9);
     expect(roundPoints(4 * FF_CITY_HINT_COST)).toBe(6);
     expect(roundPoints(99)).toBe(2);
+  });
+});
+
+describe('searchAirports ranking', () => {
+  const byCode = Object.fromEntries(ALL.map((a) => [a.iata, a]));
+  const top = (q: string) => searchAirports(ALL, byCode, q)[0]?.iata;
+  const codes = (q: string) => searchAirports(ALL, byCode, q).map((a) => a.iata);
+
+  it('picks the airport a compound city name is actually about', () => {
+    // The shipped bug: "Durham Tees Valley" (MME, 7 routes) prefix-matched
+    // "durham" and so outranked "Raleigh/Durham" (RDU, 88 routes), which only
+    // contained it. Both carry an exact `durham` token, so size decides.
+    expect(top('durham')).toBe('RDU');
+    expect(codes('durham')).toContain('MME');
+    expect(top('mulhouse')).toBe('BSL');
+  });
+
+  it('never lets a prefix match veto a much larger namesake', () => {
+    // Regression guard for the whole class: every one of these lost to a
+    // ≥3x smaller airport under the old prefix-first sort.
+    for (const [query, expected] of [
+      ['durham', 'RDU'],
+      ['mulhouse', 'BSL'],
+      ['angeles', 'LAX'],
+    ] as const) {
+      const found = searchAirports(ALL, byCode, query, 5).map((a) => a.iata);
+      expect(found, `${query} should surface ${expected}`).toContain(expected);
+    }
+  });
+
+  it('prefers an exactly-named city over one that merely contains it', () => {
+    expect(top('palmas')).toBe('PMW'); // Palmas, not Las Palmas
+    expect(top('rosario')).toBe('ROS'); // Rosario, not Puerto del Rosario
+  });
+
+  it('offers every same-named city rather than silently picking one', () => {
+    // 21 city names in the dataset span more than one country.
+    const london = codes('london');
+    expect(london[0]).toBe('LHR');
+    expect(london.length).toBeGreaterThanOrEqual(3);
+    expect(codes('birmingham')).toEqual(expect.arrayContaining(['BHX', 'BHM']));
+  });
+
+  it('matches airport names, not just cities', () => {
+    expect(top('heathrow')).toBe('LHR');
+    expect(top('guarulhos')).toBe('GRU');
+    expect(top('gatwick')).toBe('LGW');
+  });
+
+  it('still resolves plain codes and stays quiet on short input', () => {
+    expect(top('RDU')).toBe('RDU');
+    expect(top('rdu')).toBe('RDU');
+    expect(top('Raleigh')).toBe('RDU');
+    expect(searchAirports(ALL, byCode, '')).toEqual([]);
+    expect(searchAirports(ALL, byCode, 'zz')).toEqual([]);
+    expect(searchAirports(ALL, byCode, 'qqqqxyz')).toEqual([]);
+    // 3 letters that aren't a code must not city-search — "Ral" shouldn't
+    // jump somewhere mid-keystroke.
+    expect(searchAirports(ALL, byCode, 'XQZ')).toEqual([]);
+  });
+
+  it('keeps resolveHomeAirport working as the single-pick wrapper', () => {
+    expect(resolveHomeAirport(ALL, byCode, 'durham')?.iata).toBe('RDU');
+    expect(resolveHomeAirport(ALL, byCode, 'qqqqxyz')).toBeNull();
+  });
+});
+
+describe('searchAirportsWithCities', () => {
+  const byCode = Object.fromEntries(ALL.map((a) => [a.iata, a]));
+  // A stand-in for public/city-airports.json — the real file is generated.
+  const cityIndex = { 'chapel hill|us': 'RDU', 'slough|gb': 'LHR' };
+
+  it('resolves towns that have no airport of their own', () => {
+    expect(searchAirportsWithCities(ALL, byCode, cityIndex, 'chapel hill')[0]?.iata).toBe('RDU');
+    expect(searchAirportsWithCities(ALL, byCode, cityIndex, 'slough')[0]?.iata).toBe('LHR');
+  });
+
+  it('never displaces a real airport match', () => {
+    // An airport actually named for the query outranks any index entry.
+    expect(searchAirportsWithCities(ALL, byCode, cityIndex, 'durham')[0]?.iata).toBe('RDU');
+    expect(searchAirportsWithCities(ALL, byCode, cityIndex, 'london')[0]?.iata).toBe('LHR');
+  });
+
+  it('degrades to plain airport search when the index failed to load', () => {
+    expect(searchAirportsWithCities(ALL, byCode, {}, 'durham')[0]?.iata).toBe('RDU');
+    expect(searchAirportsWithCities(ALL, byCode, {}, 'chapel hill')).toEqual([]);
+  });
+});
+
+describe('nearestAirports', () => {
+  it('finds the genuinely closest airport to a point', () => {
+    // Chapel Hill, NC — the canonical "my town has no airport" case.
+    const near = nearestAirports(ALL, 35.913, -79.056, 3);
+    expect(near[0].airport.iata).toBe('RDU');
+    expect(near[0].km).toBeLessThan(30);
+    // Sorted nearest-first.
+    expect(near[0].km).toBeLessThanOrEqual(near[1].km);
+  });
+
+  it('works anywhere, not just North America', () => {
+    expect(nearestAirports(ALL, 51.511, -0.591, 1)[0].airport.iata).toBe('LHR'); // Slough
+    expect(nearestAirports(ALL, 37.442, -122.143, 1)[0].airport.iata).toBe('SJC'); // Palo Alto
+  });
+});
+
+describe('airportsInTimezone', () => {
+  it('seeds a plausible shortlist with no network and no permission', () => {
+    expect(airportsInTimezone(ALL, 'America/Los_Angeles')[0].iata).toBe('LAX');
+    expect(airportsInTimezone(ALL, 'Europe/London')[0].iata).toBe('LHR');
+    // Largest first, so the shortlist opens with recognisable names.
+    const la = airportsInTimezone(ALL, 'America/Los_Angeles', 3);
+    expect(la[0].routes.length).toBeGreaterThanOrEqual(la[1].routes.length);
+  });
+
+  it('returns nothing for an unknown zone rather than throwing', () => {
+    expect(airportsInTimezone(ALL, 'Mars/Olympus_Mons')).toEqual([]);
+  });
+});
+
+describe('timezone tiebreak for same-named cities', () => {
+  const byCode = Object.fromEntries(ALL.map((a) => [a.iata, a]));
+  const codes = (q: string, tz?: string) => searchAirports(ALL, byCode, q, 5, tz).map((a) => a.iata);
+
+  it('puts the local namesake first for someone who shares its timezone', () => {
+    // London, Ontario is YXU (America/Toronto). Someone actually there should
+    // get their own airport ahead of Heathrow.
+    expect(codes('london', 'America/Toronto')[0]).toBe('YXU');
+  });
+
+  it('does not hand London, Ontario to a New Yorker', () => {
+    // The reason this is an exact-zone test and not a distance test: YXU is
+    // 780 km from New York and LHR is 5,570 km, so proximity would get this
+    // backwards. America/New_York matches neither, so size decides — LHR.
+    expect(codes('london', 'America/New_York')[0]).toBe('LHR');
+    expect(codes('london', 'Europe/London')[0]).toBe('LHR');
+    expect(codes('london')[0]).toBe('LHR');
+  });
+
+  it('still offers the alternatives whatever the timezone', () => {
+    for (const tz of ['America/Toronto', 'America/New_York', undefined]) {
+      expect(codes('london', tz)).toEqual(expect.arrayContaining(['LHR', 'YXU']));
+    }
+  });
+
+  it('gives a UK player their own Durham', () => {
+    // Both Durhams are exact-token matches, so the zone decides. Someone in
+    // Europe/London almost certainly means Durham Tees Valley; everyone else
+    // means Raleigh–Durham, which is 12x the airport.
+    expect(codes('durham', 'Europe/London')[0]).toBe('MME');
+    expect(codes('durham', 'America/New_York')[0]).toBe('RDU');
+    expect(codes('durham')[0]).toBe('RDU');
+  });
+
+  it('never lets the timezone promote a weaker match across score bands', () => {
+    // The tiebreak only operates *within* a band. "Palmas" is PMW's exact
+    // city name (6 routes, America/Belem); LPA is merely "Las Palmas" (131
+    // routes, Atlantic/Canary). Even from the Canaries, the exact name wins.
+    expect(codes('palmas', 'Atlantic/Canary')[0]).toBe('PMW');
+  });
+});
+
+describe('long-haul bonus', () => {
+  const byCode = Object.fromEntries(ALL.map((a) => [a.iata, a]));
+  const leg = (a: string, b: string) =>
+    haversineKm(byCode[a].latitude, byCode[a].longitude, byCode[b].latitude, byCode[b].longitude);
+
+  it('is reachable but not routine', () => {
+    // A genuine long haul clears it; a domestic hop nowhere near.
+    expect(leg('JFK', 'SIN')).toBeGreaterThanOrEqual(LONG_HAUL_KM);
+    expect(leg('RDU', 'ORD')).toBeLessThan(LONG_HAUL_KM);
+    expect(leg('LHR', 'CDG')).toBeLessThan(LONG_HAUL_KM);
+  });
+
+  it('pays once per batch, so the ceiling stays honest', () => {
+    // Ten qualifying legs would otherwise add 100 and leave the needle
+    // parked at the bottom of the dial all game.
+    expect(maxScore('gb') - LONG_HAUL_BONUS).toBe(155);
+    expect(maxScore('ff') - LONG_HAUL_BONUS).toBe(205);
   });
 });

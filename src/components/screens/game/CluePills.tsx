@@ -20,7 +20,7 @@ interface Props {
 }
 
 const pillStyle = (pulled: boolean): CSSProperties => ({
-  font: 'inherit',
+  fontFamily: 'inherit',
   fontSize: 12.5,
   cursor: 'pointer',
   color: pulled ? 'var(--color-neutral-500)' : 'var(--color-text)',
@@ -34,7 +34,7 @@ const pillStyle = (pulled: boolean): CSSProperties => ({
 // Reveals-on-demand (FF) get an accent-bordered pill so they read as distinct
 // from the plain clue pulls — but they're free now, like everything else.
 const revealPillStyle = (done: boolean, disabled: boolean): CSSProperties => ({
-  font: 'inherit',
+  fontFamily: 'inherit',
   fontSize: 12.5,
   cursor: done || disabled ? 'not-allowed' : 'pointer',
   color: done ? 'var(--color-accent-300)' : 'var(--color-accent)',

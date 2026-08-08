@@ -56,6 +56,19 @@ figcaption { font-size: 11px; margin-top: var(--space-1); color: color-mix(in sr
 .btn-secondary { border-color: var(--color-divider); }
 .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
 .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+/* The filled pill every game-advancing action wears — "Check in", "Start
+   boarding", "Next code". Solid rather than outlined because on each of those
+   screens it's the single thing to do, and rounded to read as a boarding
+   button rather than a form submit. */
+.btn-pill {
+  font-size: 15px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--color-accent-600);
+  color: var(--color-accent-100);
+}
+.btn-pill:hover:not(:disabled) { background: var(--color-accent-500); }
+.btn-pill:active:not(:disabled) { background: var(--color-accent-700); }
 .btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
 .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
 .btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }

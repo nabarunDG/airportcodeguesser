@@ -2,11 +2,9 @@
    board, gold foil, cream paper — rather than Nocturne's surfaces. Same
    licence a real boarding pass would have inside a dark app.
 
-   It is deliberately a *transition*, not a block: the summary already gives
-   its permanent space to the boarding pass and Flight Leaders, and a spread
-   this tall would push the leaderboard past two phone screens. So it opens
-   over the screen, holds while the stamps land, and folds away into the
-   compact passport row. */
+   Opening on arrival at the summary it plays as a flourish and folds itself
+   away; reopened from the passport row it stays until dismissed, because a
+   filled page is what players want to screenshot. */
 
 .gc-pp-backdrop {
   position: fixed;
@@ -32,9 +30,17 @@
 
 .gc-pp-book {
   position: relative;
-  width: min(640px, 100%);
+  width: min(560px, 100%);
   perspective: 1600px;
   perspective-origin: 10% 50%;
+  /* The cover occupies the right half, so hold the book off-centre while it's
+     shut and glide it back as the spread appears — otherwise the closed
+     passport sits oddly to one side of the screen. */
+  animation: gcPpBookShift 680ms cubic-bezier(0.62, 0.02, 0.34, 1) 560ms both;
+}
+@keyframes gcPpBookShift {
+  from { transform: translateX(-25%); }
+  to { transform: none; }
 }
 /* Folding away: the whole book shrinks toward the passport row it collapses into. */
 .gc-pp-closing .gc-pp-book {
@@ -50,10 +56,21 @@
   grid-template-columns: 1fr 1fr;
   border-radius: 4px 9px 9px 4px;
   overflow: hidden;
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.45);
+  /* Edges of the pages underneath, then the drop shadow. Four hairlines is
+     enough to read as a bound booklet rather than two sheets of card. */
+  box-shadow:
+    0 3px 0 -1px #dbd8c9,
+    0 6px 0 -2px #cfccbc,
+    0 9px 0 -3px #c3c0b0,
+    0 12px 0 -4px #b6b3a3,
+    0 20px 38px rgba(0, 0, 0, 0.45);
+  /* ID-3 passport proportions: a 125mm-tall page 88mm wide, so an open spread
+     is 176 x 125. The box used to be nearly 2.4:1, which read as a ledger
+     rather than something you'd carry in a jacket pocket. */
+  aspect-ratio: 176 / 125;
   opacity: 0;
   transform: translateY(10px);
-  animation: gcPpSpreadIn 420ms ease-out 360ms both;
+  animation: gcPpSpreadIn 420ms ease-out 920ms both;
 }
 @keyframes gcPpSpreadIn {
   from { opacity: 0; transform: translateY(10px); }
@@ -66,13 +83,19 @@
     repeating-radial-gradient(circle at 26% 118%, rgba(58, 62, 96, 0.05) 0 1px, transparent 1px 8px),
     linear-gradient(157deg, #e9e7dc 0%, #dedbcd 100%);
   padding: 13px 15px;
-  min-height: 250px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+/* Paper curving into the spine — the cheapest cue that this is a bound book
+   and not a flat card split down the middle. */
 .gc-pp-page-l {
   border-right: 1px solid rgba(58, 62, 96, 0.16);
+  box-shadow: inset -13px 0 17px -13px rgba(58, 62, 96, 0.4);
+}
+.gc-pp-page:not(.gc-pp-page-l) {
+  box-shadow: inset 13px 0 17px -13px rgba(58, 62, 96, 0.4);
 }
 .gc-pp-hd {
   display: flex;
@@ -137,22 +160,29 @@
 
 /* Stamps are absolutely placed so they clip each other at their own angles.
    Three pairs overlap on purpose and the rest breathe — a page where
-   everything overlaps is as artificial as one where nothing does. */
-/* Tall enough that a die placed at the lowest SPOT (62%) still clears the
-   bottom edge — the stamps are absolutely positioned by percentage, so the
-   box has to reserve the room itself. */
+   everything overlaps is as artificial as one where nothing does.
+
+   The box takes its height from the spread's aspect ratio rather than a
+   min-height, so the lowest SPOT (62%) scales with the page instead of being
+   measured against a fixed 250px. The stacked mobile layout has no ratio to
+   inherit, so it keeps a floor of its own below. */
 .gc-pp-field {
   position: relative;
   flex: 1;
-  min-height: 250px;
+  min-height: 0;
 }
 .gc-pp-field > span {
   position: absolute;
 }
 
 .gc-pp-cover {
+  /* One page wide, hinged at the spine, so the closed book is the size of a
+     real passport rather than a flap as wide as the open spread. */
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 50%;
   background: linear-gradient(148deg, #232a5e 0%, #161a3f 56%, #1d2350 100%);
   border-radius: 5px 10px 10px 5px;
   transform-origin: left center;
@@ -162,7 +192,7 @@
   display: grid;
   place-items: center;
   color: #c9a961;
-  animation: gcPpCoverOpen 620ms cubic-bezier(0.62, 0.02, 0.34, 1) both;
+  animation: gcPpCoverOpen 680ms cubic-bezier(0.62, 0.02, 0.34, 1) 560ms both;
 }
 @keyframes gcPpCoverOpen {
   from { transform: rotateY(0deg); }
@@ -205,11 +235,16 @@
 @media (max-width: 620px) {
   .gc-pp-spread {
     grid-template-columns: 1fr;
+    aspect-ratio: auto;
   }
   .gc-pp-page-l {
     border-right: 0;
     border-bottom: 1px solid rgba(58, 62, 96, 0.16);
     min-height: 0;
+  }
+  .gc-pp-page,
+  .gc-pp-page-l {
+    box-shadow: none;
   }
   .gc-pp-page {
     min-height: 0;
@@ -227,6 +262,10 @@
   .gc-pp-spread {
     animation: none;
     opacity: 1;
+    transform: none;
+  }
+  .gc-pp-book {
+    animation: none;
     transform: none;
   }
   .gc-pp-closing .gc-pp-book {

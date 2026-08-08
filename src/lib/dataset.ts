@@ -43,6 +43,26 @@ export function loadDestinationNames(): Promise<Record<string, string>> {
   return destNamesCache;
 }
 
+let cityIndexCache: Promise<Record<string, string>> | null = null;
+
+/**
+ * Towns and suburbs that have no airport of their own, mapped to the nearest
+ * one — keyed "city|cc" (see scripts/build-city-index.mjs). Without it,
+ * typing "Chapel Hill" or "Slough" at check-in matches nothing at all.
+ *
+ * Like loadDestinationNames, deliberately never allowed to reject: it only
+ * widens what check-in can resolve, so a failed load degrades to airport-name
+ * matching rather than blocking the player at the door.
+ */
+export function loadCityIndex(): Promise<Record<string, string>> {
+  if (!cityIndexCache) {
+    cityIndexCache = fetch('/city-airports.json')
+      .then((res) => (res.ok ? (res.json() as Promise<Record<string, string>>) : {}))
+      .catch(() => ({}));
+  }
+  return cityIndexCache;
+}
+
 export function buildIndex(airports: Airport[]): Record<string, Airport> {
   const byCode: Record<string, Airport> = {};
   for (const a of airports) byCode[a.iata] = a;
@@ -56,5 +76,6 @@ loadAirports().catch(() => {
   // Swallowed here; App.tsx's own load effect surfaces the error to the UI.
 });
 
-// Warmed alongside it, but nothing gates on it — see loadDestinationNames.
+// Warmed alongside it, but nothing gates on either — see loadDestinationNames.
 void loadDestinationNames();
+void loadCityIndex();

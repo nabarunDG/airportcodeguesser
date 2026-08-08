@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Airport } from './types';
 import { useGameEngine } from './hooks/useGameEngine';
 import { defaultLeaderboardClient } from './lib/leaderboardClient';
+import { guessHomeAirport, type HomeGuess } from './lib/homeAirportGuess';
 import { startMetricsPing } from './lib/metrics';
 import Header from './components/Header';
 import CloudBackground from './components/CloudBackground';
@@ -28,6 +29,23 @@ export default function GameApp({ airports, byCode }: Props) {
   // displayed anywhere in the app.
   useEffect(() => startMetricsPing(), []);
 
+  // Resolve the opening check-in guess up front, while the player is still
+  // reading the Home screen, so the screen they tap into is already filled in
+  // rather than showing a spinner. Never blocks anything: if it hasn't
+  // resolved (or resolved to nothing), check-in just starts empty.
+  const [guess, setGuess] = useState<HomeGuess | null>(null);
+  useEffect(() => {
+    let live = true;
+    void guessHomeAirport(airports, state.homeAirport ? (byCode[state.homeAirport] ?? null) : null).then((g) => {
+      if (live) setGuess(g);
+    });
+    return () => {
+      live = false;
+    };
+    // Keyed on the saved code, not the whole engine state: re-running on every
+    // round would refetch the edge location each time.
+  }, [airports, byCode, state.homeAirport]);
+
   const screen = useMemo(() => {
     switch (state.screen) {
       case 'home':
@@ -40,7 +58,7 @@ export default function GameApp({ airports, byCode }: Props) {
           />
         );
       case 'checkin':
-        return <CheckinScreen airports={airports} byCode={byCode} homeAirport={state.homeAirport} onCheckIn={engine.checkIn} />;
+        return <CheckinScreen airports={airports} byCode={byCode} guess={guess} onCheckIn={engine.checkIn} />;
       case 'game':
         return <GameScreen engine={engine} />;
       case 'reveal':
@@ -52,7 +70,7 @@ export default function GameApp({ airports, byCode }: Props) {
       default:
         return null;
     }
-  }, [state.screen, state.mode, state.homeAirport, engine, airports, byCode]);
+  }, [state.screen, state.mode, guess, engine, airports, byCode]);
 
   return (
     <div

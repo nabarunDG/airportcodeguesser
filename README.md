@@ -70,6 +70,17 @@ a full spread would push the leaderboard past two phone screens.
   [airline-route-data](https://github.com/Jonty/airline-route-data) dataset
   (see `scripts/trim-data.mjs`), refreshed monthly by
   `.github/workflows/refresh-data.yml` via an automated pull request.
+  `public/city-airports.json` maps ~27,000 towns and suburbs to their nearest
+  airport so check-in resolves places that have no airport of their own (see
+  `scripts/build-city-index.mjs`, run with `npm run data:cities` after a
+  refresh). It is derived from [GeoNames](https://www.geonames.org/), used
+  under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- **Location:** check-in opens with a best guess rather than a blank field —
+  a previously saved airport, else the approximate location Cloudflare derives
+  from the connection (`functions/api/where.ts`, no browser permission
+  prompt), else the browser's timezone. The player can always override it, and
+  precise device location is only ever read after an explicit tap. No location
+  value is stored, logged, or associated with a player.
 
 ## Local development
 

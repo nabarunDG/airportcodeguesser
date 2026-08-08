@@ -74,6 +74,8 @@ export interface Bonuses {
   continents: number;
   /** +10 if any consecutive leg crossed the antimeridian. */
   dateLine: number;
+  /** +10 if any single leg ran LONG_HAUL_KM or further. Once per batch, like dateLine. */
+  longHaul: number;
   /** +20 flat at batch end in Frequent Flyer. */
   elite: number;
 }
