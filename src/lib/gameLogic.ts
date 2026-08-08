@@ -37,6 +37,9 @@ export function roundPoints(costSoFar: number): number {
 export const STREAK_LENGTH = 3; // consecutive corrects per upgrade bonus
 export const UPGRADE_BONUS = 10; // +10 per 3-streak (doubled in FF)
 export const DATE_LINE_BONUS = 10;
+/** A single leg this far or further earns the long-haul bonus. */
+export const LONG_HAUL_KM = 10_000;
+export const LONG_HAUL_BONUS = 10;
 export const ELITE_BONUS = 20; // FF flat bonus at batch end
 /** GB draw: extra weight multiplier for the player's own continent. */
 export const HOME_CONTINENT_WEIGHT = 1.2;
@@ -417,13 +420,16 @@ export function continentBonus(count: number): number {
 /**
  * The highest score a batch can bank in a mode: 10 clean answers, every
  * streak upgrade (3 per batch, doubled in FF), all six continents, the date
- * line, and FF's elite bonus. GB 155, FF 205 under current constants —
- * derived, not hard-coded, so a bonus retune moves the gauges with it.
+ * line, one long haul, and FF's elite bonus. GB 165, FF 215 under current
+ * constants — derived, not hard-coded, so a bonus retune moves the gauges
+ * with it.
  */
 export function maxScore(mode: Mode): number {
   const upgrades = Math.floor(BATCH_SIZE / STREAK_LENGTH) * UPGRADE_BONUS * (mode === 'ff' ? 2 : 1);
   const elite = mode === 'ff' ? ELITE_BONUS : 0;
-  return BATCH_SIZE * ROUND_POINTS + upgrades + continentBonus(6) + DATE_LINE_BONUS + elite;
+  return (
+    BATCH_SIZE * ROUND_POINTS + upgrades + continentBonus(6) + DATE_LINE_BONUS + LONG_HAUL_BONUS + elite
+  );
 }
 
 export interface ScoreGaugeCalibration {

@@ -29,6 +29,8 @@ import {
   CLUE_NUDGE_SECONDS,
   DATE_LINE_BONUS,
   ELITE_BONUS,
+  LONG_HAUL_BONUS,
+  LONG_HAUL_KM,
   FF_CITY_HINT_COST,
   IDLE_NUDGE_SECONDS,
   IDLE_SKIP_SECONDS,
@@ -140,7 +142,7 @@ const NO_TODAY_STATS: TodayStats = { pax: 0, points: 0 };
 
 const NO_CLUES: ClueFlags = { car: false, dest: false };
 const NO_HINTS: HintFlags = { country: false, carrierNames: false, destNames: false };
-const NO_BONUSES: Bonuses = { upgrades: 0, continents: 0, dateLine: 0, elite: 0 };
+const NO_BONUSES: Bonuses = { upgrades: 0, continents: 0, dateLine: 0, longHaul: 0, elite: 0 };
 
 const initialState: EngineState = {
   screen: 'home',
@@ -184,6 +186,7 @@ const initialState: EngineState = {
 interface EndBonuses {
   continents: number;
   dateLine: number;
+  longHaul: number;
   elite: number;
 }
 
@@ -325,11 +328,13 @@ function reducer(state: EngineState, action: Action): EngineState {
         ...state,
         screen: 'summary',
         batchEndMs: state.batchEndMs ?? action.now,
-        score: state.score + action.end.continents + action.end.dateLine + action.end.elite,
+        score:
+          state.score + action.end.continents + action.end.dateLine + action.end.longHaul + action.end.elite,
         bonuses: {
           ...state.bonuses,
           continents: action.end.continents,
           dateLine: action.end.dateLine,
+          longHaul: action.end.longHaul,
           elite: action.end.elite,
         },
       };
@@ -606,16 +611,24 @@ export function useGameEngine(
       const legs = [state.homeAirport, ...state.journey]
         .map((code) => (code ? byCode[code] : undefined))
         .filter((a): a is Airport => Boolean(a));
+      // Both leg bonuses pay once per batch however many legs qualify — the
+      // same rule the date line already used, and what keeps the score
+      // ceiling (and so the gauge) from ballooning with ten long hauls.
       let dateLine = 0;
+      let longHaul = 0;
       for (let i = 1; i < legs.length; i++) {
-        if (crossesDateLine(legs[i - 1].longitude, legs[i].longitude)) {
-          dateLine = DATE_LINE_BONUS;
-          break;
+        const from = legs[i - 1];
+        const to = legs[i];
+        if (crossesDateLine(from.longitude, to.longitude)) dateLine = DATE_LINE_BONUS;
+        if (haversineKm(from.latitude, from.longitude, to.latitude, to.longitude) >= LONG_HAUL_KM) {
+          longHaul = LONG_HAUL_BONUS;
         }
+        if (dateLine && longHaul) break;
       }
       const end: EndBonuses = {
         continents: continentBonus(continentsTouched),
         dateLine,
+        longHaul,
         elite: state.mode === 'ff' ? ELITE_BONUS : 0,
       };
       if (batchStartRef.current != null) {
@@ -625,7 +638,7 @@ export function useGameEngine(
         // (batchEndMs), not to this button click. Score includes end bonuses.
         reportBatch({
           durationSeconds: Math.max(0, Math.floor(((state.batchEndMs ?? Date.now()) - batchStartRef.current) / 1000)),
-          score: state.score + end.continents + end.dateLine + end.elite,
+          score: state.score + end.continents + end.dateLine + end.longHaul + end.elite,
           correct: state.correct,
           hintsUsed: state.hintsUsedTotal,
           stamps: state.stamps.length,

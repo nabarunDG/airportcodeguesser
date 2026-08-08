@@ -116,7 +116,7 @@ export default function CheckinScreen({ airports, byCode, guess, onCheckIn }: Pr
       </span>
       <h2 style={{ fontSize: 26, margin: 0, textWrap: 'balance' }}>Where does your journey begin?</h2>
       <p style={{ fontSize: 13.5, color: 'var(--color-neutral-400)', margin: 0, maxWidth: 300, lineHeight: 1.55 }}>
-        Your route leans toward familiar skies, and we measure every mile you fly from here.
+        Your route leans towards familiar skies, and mileage counts.
       </p>
 
       {/* The answer comes first: confirm, then correct. */}

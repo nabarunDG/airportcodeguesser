@@ -16,6 +16,8 @@ import {
   CONTINENTS,
   DATE_LINE_BONUS,
   ELITE_BONUS,
+  LONG_HAUL_BONUS,
+  LONG_HAUL_KM,
   FF_CITY_HINT_COST,
   HUB_FLOOR_MIN,
   MIN_BATCH_ROUTES,
@@ -443,13 +445,14 @@ describe('bonuses', () => {
   });
 
   it('computes each mode’s true ceiling', () => {
-    // GB: 100 base + 3×10 streak upgrades + 15 continents + 10 date line.
-    expect(maxScore('gb')).toBe(100 + 3 * UPGRADE_BONUS + continentBonus(6) + DATE_LINE_BONUS);
-    expect(maxScore('gb')).toBe(155);
-    // FF doubles the upgrades and adds the elite bonus — the 205 that pegged
-    // the old shared 160 dial.
-    expect(maxScore('ff')).toBe(100 + 6 * UPGRADE_BONUS + continentBonus(6) + DATE_LINE_BONUS + ELITE_BONUS);
-    expect(maxScore('ff')).toBe(205);
+    // GB: 100 base + 3×10 streak upgrades + 15 continents + 10 date line + 10 long haul.
+    expect(maxScore('gb')).toBe(100 + 3 * UPGRADE_BONUS + continentBonus(6) + DATE_LINE_BONUS + LONG_HAUL_BONUS);
+    expect(maxScore('gb')).toBe(165);
+    // FF doubles the upgrades and adds the elite bonus.
+    expect(maxScore('ff')).toBe(
+      100 + 6 * UPGRADE_BONUS + continentBonus(6) + DATE_LINE_BONUS + LONG_HAUL_BONUS + ELITE_BONUS,
+    );
+    expect(maxScore('ff')).toBe(215);
   });
 
   it('calibrates the score dial to fit each mode’s ceiling on clean steps', () => {
@@ -464,8 +467,8 @@ describe('bonuses', () => {
       // Minor ticks land every 5 points on both dials.
       expect(step / (dial.minorsPerInterval + 1)).toBe(5);
     }
-    expect(scoreGaugeCalibration('gb').max).toBe(160);
-    expect(scoreGaugeCalibration('ff').max).toBe(210);
+    expect(scoreGaugeCalibration('gb').max).toBe(180);
+    expect(scoreGaugeCalibration('ff').max).toBe(240);
   });
 });
 
@@ -750,5 +753,25 @@ describe('timezone tiebreak for same-named cities', () => {
     // city name (6 routes, America/Belem); LPA is merely "Las Palmas" (131
     // routes, Atlantic/Canary). Even from the Canaries, the exact name wins.
     expect(codes('palmas', 'Atlantic/Canary')[0]).toBe('PMW');
+  });
+});
+
+describe('long-haul bonus', () => {
+  const byCode = Object.fromEntries(ALL.map((a) => [a.iata, a]));
+  const leg = (a: string, b: string) =>
+    haversineKm(byCode[a].latitude, byCode[a].longitude, byCode[b].latitude, byCode[b].longitude);
+
+  it('is reachable but not routine', () => {
+    // A genuine long haul clears it; a domestic hop nowhere near.
+    expect(leg('JFK', 'SIN')).toBeGreaterThanOrEqual(LONG_HAUL_KM);
+    expect(leg('RDU', 'ORD')).toBeLessThan(LONG_HAUL_KM);
+    expect(leg('LHR', 'CDG')).toBeLessThan(LONG_HAUL_KM);
+  });
+
+  it('pays once per batch, so the ceiling stays honest', () => {
+    // Ten qualifying legs would otherwise add 100 and leave the needle
+    // parked at the bottom of the dial all game.
+    expect(maxScore('gb') - LONG_HAUL_BONUS).toBe(155);
+    expect(maxScore('ff') - LONG_HAUL_BONUS).toBe(205);
   });
 });

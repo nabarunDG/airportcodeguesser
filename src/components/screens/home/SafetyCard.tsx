@@ -57,7 +57,9 @@ export default function SafetyCard() {
         <span>Bonuses for streaks and long hauls</span>
       </div>
       <div className="gc-safety-foot">
-        In the unlikely event of a wrong answer, oxygen masks will not deploy. It&rsquo;s just a game.
+        In the unlikely event of a wrong answer, oxygen masks will not deploy.
+        <br />
+        It&rsquo;s just a game.
       </div>
     </div>
   );

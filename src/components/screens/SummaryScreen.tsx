@@ -4,6 +4,7 @@ import {
   boardGroup,
   ffTier,
   fmtDistance,
+  LONG_HAUL_KM,
   fmtDur,
   haversineKm,
   journeyMilestone,
@@ -73,6 +74,9 @@ export default function SummaryScreen({ engine }: Props) {
     state.bonuses.upgrades > 0 ? `Streak upgrade bonus +${state.bonuses.upgrades}` : null,
     state.bonuses.continents > 0 ? `${continentsTouched} continents visited +${state.bonuses.continents}` : null,
     state.bonuses.dateLine > 0 ? `International date line crossed +${state.bonuses.dateLine}` : null,
+    state.bonuses.longHaul > 0
+      ? `Long haul over ${LONG_HAUL_KM.toLocaleString('en-US')} km +${state.bonuses.longHaul}`
+      : null,
     state.bonuses.elite > 0 ? `Elite fare bonus +${state.bonuses.elite}` : null,
   ].filter((l): l is string => Boolean(l));
 
