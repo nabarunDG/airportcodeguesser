@@ -11,10 +11,8 @@
 //     number of attempts and tolerates `wpick` returning `undefined`,
 //     instead of spinning unboundedly / crashing if it ever ran dry.
 
-import type { Airport, Choice, Continent, Route } from '../types';
+import type { Airport, Choice, Continent, Mode, Route } from '../types';
 
-export const HINT_COST = 2;
-export const CITY_REVEAL_COST = 1; // per-option "reveal this city" cost — see ChoiceList
 export const MIN_BATCH_ROUTES = 8; // floor to be a batch answer/distractor
 export const MIN_FILL_ROUTES = 20; // floor for random fallback-fill picks
 export const HUB_TOP_FRACTION = 0.2; // "hub" = top 20% by route count *within its continent*
@@ -24,6 +22,26 @@ export const REUSE_POOL_FLOOR = 80; // reset the used-set once the remaining poo
 
 export const IDLE_NUDGE_SECONDS = 120;
 export const IDLE_SKIP_SECONDS = 150;
+/** Idle time with zero clues pulled before the "clues are free" toast — well before the 120s taxi-away flow. */
+export const CLUE_NUDGE_SECONDS = 45;
+
+/** Base points per correct answer. GB never deducts; FF's paid reveals subtract via roundPoints. */
+export const ROUND_POINTS = 10;
+/** Frequent Flyer's one priced reveal: a city hint. Everything else in both modes is free. */
+export const FF_CITY_HINT_COST = 1;
+
+/** Round score: base minus the reveal costs spent this round (FF only), floored at 2. */
+export function roundPoints(costSoFar: number): number {
+  return Math.max(2, ROUND_POINTS - costSoFar);
+}
+export const STREAK_LENGTH = 3; // consecutive corrects per upgrade bonus
+export const UPGRADE_BONUS = 10; // +10 per 3-streak (doubled in FF)
+export const DATE_LINE_BONUS = 10;
+export const ELITE_BONUS = 20; // FF flat bonus at batch end
+/** GB draw: extra weight multiplier for the player's own continent. */
+export const HOME_CONTINENT_WEIGHT = 1.2;
+/** Random gate for the Oregon-Trail event lines — a treat, not wallpaper. */
+export const EVENT_LINE_CHANCE = 0.4;
 
 export const CARRIER_DISPLAY_CAP = 28;
 export const DEST_DISPLAY_CAP = 36;
@@ -42,21 +60,27 @@ export function shuffle<T>(list: T[], rng: Rng = Math.random): T[] {
   return l;
 }
 
+/** Per-airport draw weight — see wpick. */
+export type WeightFn = (a: Airport) => number;
+
+const SQRT_ROUTES: WeightFn = (a) => Math.sqrt(a.routes.length);
+
 /**
- * Weighted-random pick, weight = √routes.length. Sub-linear on purpose: it
- * keeps a mild bias toward larger (more guessable) airports without letting
- * mega-hubs monopolize a slot — under the old routes² weighting a 289-route
- * FRA outweighed a 45-route hub 41-to-1 and the same few airports appeared
- * every batch.
+ * Weighted-random pick, default weight = √routes.length. Sub-linear on
+ * purpose: it keeps a mild bias toward larger (more guessable) airports
+ * without letting mega-hubs monopolize a slot — under the old routes²
+ * weighting a 289-route FRA outweighed a 45-route hub 41-to-1 and the same
+ * few airports appeared every batch. General Boarding passes a linear weight
+ * instead (see batchWeightFn) — friendlier skies mean more major hubs.
  */
-export function wpick(list: Airport[], rng: Rng = Math.random): Airport | undefined {
+export function wpick(list: Airport[], rng: Rng = Math.random, weight: WeightFn = SQRT_ROUTES): Airport | undefined {
   if (list.length === 0) return undefined;
   let total = 0;
-  for (const a of list) total += Math.sqrt(a.routes.length);
+  for (const a of list) total += weight(a);
   if (total <= 0) return list[Math.floor(rng() * list.length)];
   let r = rng() * total;
   for (const a of list) {
-    r -= Math.sqrt(a.routes.length);
+    r -= weight(a);
     if (r <= 0) return a;
   }
   return list[list.length - 1];
@@ -83,6 +107,26 @@ export function continentHubFloors(pool: Airport[]): Map<Continent, number> {
   return floors;
 }
 
+export interface BatchOptions {
+  /** GB re-weights the draw toward hubs; FF keeps the classic √routes draw. */
+  mode?: Mode;
+  /** Player's home continent (from check-in) — GB gives it ~+20% draw weight. */
+  homeContinent?: Continent | string;
+}
+
+/**
+ * The draw weight for a batch slot. GB weights `routes` linearly (major hubs
+ * come up far more often) and nudges the player's own continent up by
+ * HOME_CONTINENT_WEIGHT; FF keeps the classic sub-linear √routes weight.
+ */
+export function batchWeightFn({ mode, homeContinent }: BatchOptions): WeightFn {
+  const base: WeightFn = mode === 'gb' ? (a) => a.routes.length : SQRT_ROUTES;
+  if (mode === 'gb' && homeContinent) {
+    return (a) => base(a) * (a.continent === homeContinent ? HOME_CONTINENT_WEIGHT : 1);
+  }
+  return base;
+}
+
 /**
  * Builds one batch of BATCH_SIZE airports: one anchor hub from a uniformly
  * random continent (so the biggest name in the batch rotates between ATL-class
@@ -91,7 +135,8 @@ export function continentHubFloors(pool: Airport[]): Map<Continent, number> {
  * airport placed into the batch); clears it first if the remaining pool is
  * too small to draw a fresh batch from.
  */
-export function buildBatch(all: Airport[], used: Set<string>, rng: Rng = Math.random): Airport[] {
+export function buildBatch(all: Airport[], used: Set<string>, rng: Rng = Math.random, opts: BatchOptions = {}): Airport[] {
+  const weight = batchWeightFn(opts);
   let pool = all.filter((a) => a.routes.length >= MIN_BATCH_ROUTES && !used.has(a.iata));
   if (pool.length < REUSE_POOL_FLOOR) {
     used.clear();
@@ -108,15 +153,15 @@ export function buildBatch(all: Airport[], used: Set<string>, rng: Rng = Math.ra
 
   const anchorContinent = CONTINENTS[Math.floor(rng() * CONTINENTS.length)];
   const hub =
-    wpick(pool.filter((a) => a.continent === anchorContinent && isHub(a)), rng) ??
-    wpick(pool.filter(isHub), rng);
+    wpick(pool.filter((a) => a.continent === anchorContinent && isHub(a)), rng, weight) ??
+    wpick(pool.filter(isHub), rng, weight);
   if (hub) {
     picked.add(hub.iata);
     batch.push(hub);
   }
 
   for (const continent of CONTINENTS) {
-    const candidate = wpick(pool.filter((a) => a.continent === continent && !picked.has(a.iata)), rng);
+    const candidate = wpick(pool.filter((a) => a.continent === continent && !picked.has(a.iata)), rng, weight);
     if (candidate) {
       picked.add(candidate.iata);
       batch.push(candidate);
@@ -128,7 +173,7 @@ export function buildBatch(all: Airport[], used: Set<string>, rng: Rng = Math.ra
   while (batch.length < BATCH_SIZE && attempts < maxAttempts) {
     attempts++;
     const candidatePool = pool.filter((a) => !picked.has(a.iata));
-    const candidate = wpick(candidatePool, rng);
+    const candidate = wpick(candidatePool, rng, weight);
     if (!candidate) break;
     picked.add(candidate.iata);
     batch.push(candidate);
@@ -304,9 +349,133 @@ export function departuresBucket(destCache: DestEntry[]): string {
   return deps >= 300 ? '300+' : `${Math.max(10, Math.floor(deps / 10) * 10)}+`;
 }
 
-/** Round score: 10 pts minus every hint/reveal cost spent this round, floored at 2. */
-export function roundPoints(costSoFar: number): number {
-  return Math.max(2, 10 - costSoFar);
+/* ── Journeys, distance and bonuses ──────────────────────────────────── */
+
+const EARTH_RADIUS_KM = 6371;
+const KM_PER_MI = 1.609344;
+
+/** Great-circle distance in km between two lat/lon points (haversine). */
+export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const s =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+export function kmToMi(km: number): number {
+  return km / KM_PER_MI;
+}
+
+/** "6,461 mi / 10,398 km" — both units, rounded, for the reveal and boarding pass. */
+export function fmtDistance(km: number): string {
+  return `${Math.round(kmToMi(km)).toLocaleString('en-US')} mi / ${Math.round(km).toLocaleString('en-US')} km`;
+}
+
+/**
+ * Whether the shorter great-circle leg between two longitudes crosses the
+ * antimeridian (±180°) — the international-date-line bonus's trigger.
+ */
+export function crossesDateLine(lon1: number, lon2: number): boolean {
+  return Math.abs(lon1 - lon2) > 180;
+}
+
+/**
+ * Journey milestones — a collection, never a mission: the summary always
+ * names what was achieved. Below 4 stamps there's no title, just the count.
+ */
+const MILESTONES: ReadonlyArray<readonly [number, string]> = [
+  [10, 'World tour'],
+  [8, 'Circumnavigator'],
+  [6, 'Grand tour'],
+  [4, 'Weekend hop'],
+];
+
+export function journeyMilestone(stamps: number): string | null {
+  const hit = MILESTONES.find(([min]) => stamps >= min);
+  return hit ? hit[1] : null;
+}
+
+/** The next milestone up, for the reveal strip's tease ("2 more for a Grand tour"). */
+export function nextMilestone(stamps: number): { need: number; name: string } | null {
+  for (let i = MILESTONES.length - 1; i >= 0; i--) {
+    const [min, name] = MILESTONES[i];
+    if (stamps < min) return { need: min - stamps, name };
+  }
+  return null;
+}
+
+/** Continent bonus tiers at batch end: 4 continents +5, 5 +10, all 6 +15. */
+export function continentBonus(count: number): number {
+  if (count >= 6) return 15;
+  if (count >= 5) return 10;
+  if (count >= 4) return 5;
+  return 0;
+}
+
+/**
+ * The highest score a batch can bank in a mode: 10 clean answers, every
+ * streak upgrade (3 per batch, doubled in FF), all six continents, the date
+ * line, and FF's elite bonus. GB 155, FF 205 under current constants —
+ * derived, not hard-coded, so a bonus retune moves the gauges with it.
+ */
+export function maxScore(mode: Mode): number {
+  const upgrades = Math.floor(BATCH_SIZE / STREAK_LENGTH) * UPGRADE_BONUS * (mode === 'ff' ? 2 : 1);
+  const elite = mode === 'ff' ? ELITE_BONUS : 0;
+  return BATCH_SIZE * ROUND_POINTS + upgrades + continentBonus(6) + DATE_LINE_BONUS + elite;
+}
+
+export interface ScoreGaugeCalibration {
+  /** Top of the dial — maxScore rounded up to a clean numeral step. */
+  max: number;
+  /** Values that get a long tick + printed numeral. */
+  majors: number[];
+  minorsPerInterval: number;
+}
+
+/**
+ * Per-mode dial calibration: the scale must fit the mode's true ceiling
+ * (a 205-point FF batch pegged the old shared 160 dial) while keeping the
+ * numerals on clean steps — 20s for GB's 160, 30s for FF's 210.
+ */
+export function scoreGaugeCalibration(mode: Mode): ScoreGaugeCalibration {
+  const step = mode === 'ff' ? 30 : 20;
+  const max = Math.ceil(maxScore(mode) / step) * step;
+  const majors = Array.from({ length: max / step + 1 }, (_, i) => i * step);
+  // Minor ticks every 5 points on both dials, whatever the major step.
+  return { max, majors, minorsPerInterval: step / 5 - 1 };
+}
+
+/* ── Check-in ────────────────────────────────────────────────────────── */
+
+/**
+ * Resolves the check-in input to an airport: 3 letters that match a code are
+ * that airport; otherwise the query is a city-name search resolving to the
+ * best (largest, prefix-first) match — which, the dataset being airports
+ * keyed by their own cities, IS the nearest airport to that city.
+ */
+export function resolveHomeAirport(
+  all: Airport[],
+  byCode: Record<string, Airport>,
+  query: string,
+): Airport | null {
+  const q = query.trim();
+  if (q.length < 3) return null;
+  if (/^[a-zA-Z]{3}$/.test(q)) {
+    const direct = byCode[q.toUpperCase()];
+    if (direct) return direct;
+  }
+  if (q.length < 4) return null;
+  const needle = q.toLowerCase();
+  const matches = all.filter((a) => a.city_name.toLowerCase().includes(needle));
+  if (matches.length === 0) return null;
+  matches.sort((x, y) => {
+    const xp = x.city_name.toLowerCase().startsWith(needle) ? 0 : 1;
+    const yp = y.city_name.toLowerCase().startsWith(needle) ? 0 : 1;
+    return xp - yp || y.routes.length - x.routes.length;
+  });
+  return matches[0];
 }
 
 /**
@@ -409,12 +578,13 @@ export function todayDisplay(): string {
   return new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
-/** Cockpit-dial needle rotation in degrees, -90 (0 pts) to +90 (100 pts). */
-export function dialNeedleDeg(score: number): number {
-  return -90 + (score / 100) * 180;
-}
-
-/** Cockpit-dial arc stroke-dashoffset (pathLength=100), so higher score = more arc filled. */
-export function dialOffset(score: number): number {
-  return 100 - score;
+/**
+ * Cockpit-gauge needle rotation for a needle drawn pointing straight up:
+ * 0 sits at the bottom-left stop (−135°), full scale at bottom-right (+135°)
+ * — a 270° clockwise sweep, matching the reference dials in assets/gauges/
+ * (needle angle = 225° + 270°·value/max, expressed relative to 12 o'clock).
+ */
+export function gaugeNeedleDeg(value: number, max: number): number {
+  const f = Math.min(1, Math.max(0, max > 0 ? value / max : 0));
+  return -135 + 270 * f;
 }

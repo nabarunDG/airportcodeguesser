@@ -131,3 +131,8 @@ To check the numbers:
   to `main` as `stats/daily-usage.json` — a browsable, versioned history
   with no dashboard access needed. Requires two repo secrets:
   `CLOUDFLARE_API_TOKEN` (D1 read access) and `CLOUDFLARE_ACCOUNT_ID`.
+
+## License
+
+© 2026 N. Dasgupta · GATE CHECK™ is a trademark of N. Dasgupta. All rights
+reserved.

@@ -54,10 +54,29 @@ export interface StampRecord {
   slots: StampSlots;
 }
 
-export type Screen = 'home' | 'game' | 'reveal' | 'summary' | 'leaderboard';
+export type Screen = 'home' | 'checkin' | 'game' | 'reveal' | 'summary' | 'leaderboard';
+
+/**
+ * Difficulty modes (see docs/design-handoff §"New game rules"): General
+ * Boarding re-weights the draw toward hubs and shows cities/names up front;
+ * Frequent Flyer keeps reveal-on-demand and pays elite bonuses instead.
+ */
+export type Mode = 'gb' | 'ff';
 
 export type ClueKey = 'car' | 'dest';
 export type HintKey = 'country' | 'carrierNames' | 'destNames';
+
+/** Additive bonuses earned across a batch — score may exceed 100 with these. */
+export interface Bonuses {
+  /** +10 per 3-correct streak (doubled in FF). */
+  upgrades: number;
+  /** Continents touched at batch end: 4 → +5, 5 → +10, all 6 → +15. */
+  continents: number;
+  /** +10 if any consecutive leg crossed the antimeridian. */
+  dateLine: number;
+  /** +20 flat at batch end in Frequent Flyer. */
+  elite: number;
+}
 
 export interface Choice {
   airport: Airport;

@@ -36,6 +36,19 @@
   color: var(--color-neutral-500);
   font-variant-numeric: tabular-nums;
 }
+.gc-header-mode {
+  border: 1px solid var(--color-neutral-800);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--color-neutral-400);
+}
+.gc-header-mode--ff {
+  border-color: var(--color-accent-600);
+  color: var(--color-accent-300);
+  background: var(--color-accent-900);
+}
 .gc-header-status .gc-val { color: var(--color-text); }
 .gc-header-status .gc-val--accent { color: var(--color-accent); }
 .gc-header-status .gc-sep { color: var(--color-neutral-700); }

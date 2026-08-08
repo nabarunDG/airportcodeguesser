@@ -14,16 +14,32 @@ import type { Airport, Continent } from '../types';
 import {
   BATCH_SIZE,
   CONTINENTS,
+  DATE_LINE_BONUS,
+  ELITE_BONUS,
+  FF_CITY_HINT_COST,
   HUB_FLOOR_MIN,
   MIN_BATCH_ROUTES,
   MIN_FILL_ROUTES,
+  UPGRADE_BONUS,
   boardGroup,
   buildBatch,
+  continentBonus,
   continentHubFloors,
+  crossesDateLine,
   ffTier,
+  fmtDistance,
+  gaugeNeedleDeg,
+  haversineKm,
+  journeyMilestone,
   makeChoices,
+  maxScore,
+  nextMilestone,
+  resolveHomeAirport,
+  roundPoints,
+  scoreGaugeCalibration,
   type Rng,
 } from './gameLogic';
+import { NEGATIVE_EVENTS, POSITIVE_EVENTS, rollEventLine } from './eventLines';
 
 const ALL: Airport[] = JSON.parse(
   readFileSync(path.join(__dirname, '..', '..', 'public', 'airports.json'), 'utf8'),
@@ -355,5 +371,222 @@ describe('makeChoices', () => {
       }
     }
     expect(sameContinent / total).toBeGreaterThan(0.6);
+  });
+});
+
+describe('haversine distance', () => {
+  const byCode = Object.fromEntries(ALL.map((a) => [a.iata, a]));
+
+  it('matches the known YYZ→GRU great-circle distance', () => {
+    // The design mock quotes "6,461 mi / 10,398 km" for this leg.
+    const yyz = byCode['YYZ'];
+    const gru = byCode['GRU'];
+    const km = haversineKm(yyz.latitude, yyz.longitude, gru.latitude, gru.longitude);
+    expect(km).toBeGreaterThan(8100);
+    expect(km).toBeLessThan(8400);
+  });
+
+  it('is zero for the same point and symmetric between endpoints', () => {
+    const lhr = byCode['LHR'];
+    const hnd = byCode['HND'];
+    expect(haversineKm(lhr.latitude, lhr.longitude, lhr.latitude, lhr.longitude)).toBe(0);
+    const ab = haversineKm(lhr.latitude, lhr.longitude, hnd.latitude, hnd.longitude);
+    const ba = haversineKm(hnd.latitude, hnd.longitude, lhr.latitude, lhr.longitude);
+    expect(ab).toBeCloseTo(ba, 6);
+  });
+
+  it('formats both units with thousands separators', () => {
+    expect(fmtDistance(10398)).toBe('6,461 mi / 10,398 km');
+  });
+});
+
+describe('crossesDateLine', () => {
+  it('fires only when the short leg crosses the antimeridian', () => {
+    expect(crossesDateLine(170, -170)).toBe(true); // Fiji → Samoa hop
+    expect(crossesDateLine(151.18, -37.01 * 0 + 174.79)).toBe(false); // SYD → AKL, same side
+    expect(crossesDateLine(-0.45, 139.78)).toBe(false); // LHR → HND, over Asia
+    expect(crossesDateLine(139.78, -79.63)).toBe(true); // HND → YYZ, over the Pacific
+  });
+});
+
+describe('journey milestones', () => {
+  it('grades by named milestone, never pass/fail', () => {
+    expect(journeyMilestone(0)).toBeNull();
+    expect(journeyMilestone(3)).toBeNull();
+    expect(journeyMilestone(4)).toBe('Weekend hop');
+    expect(journeyMilestone(5)).toBe('Weekend hop');
+    expect(journeyMilestone(6)).toBe('Grand tour');
+    expect(journeyMilestone(8)).toBe('Circumnavigator');
+    expect(journeyMilestone(9)).toBe('Circumnavigator');
+    expect(journeyMilestone(10)).toBe('World tour');
+  });
+
+  it('teases the next milestone up, and nothing past World tour', () => {
+    expect(nextMilestone(0)).toEqual({ need: 4, name: 'Weekend hop' });
+    expect(nextMilestone(4)).toEqual({ need: 2, name: 'Grand tour' });
+    expect(nextMilestone(9)).toEqual({ need: 1, name: 'World tour' });
+    expect(nextMilestone(10)).toBeNull();
+  });
+});
+
+describe('bonuses', () => {
+  it('tiers the continent bonus 4/5/6 → +5/+10/+15', () => {
+    expect(continentBonus(0)).toBe(0);
+    expect(continentBonus(3)).toBe(0);
+    expect(continentBonus(4)).toBe(5);
+    expect(continentBonus(5)).toBe(10);
+    expect(continentBonus(6)).toBe(15);
+  });
+
+  it('computes each mode’s true ceiling', () => {
+    // GB: 100 base + 3×10 streak upgrades + 15 continents + 10 date line.
+    expect(maxScore('gb')).toBe(100 + 3 * UPGRADE_BONUS + continentBonus(6) + DATE_LINE_BONUS);
+    expect(maxScore('gb')).toBe(155);
+    // FF doubles the upgrades and adds the elite bonus — the 205 that pegged
+    // the old shared 160 dial.
+    expect(maxScore('ff')).toBe(100 + 6 * UPGRADE_BONUS + continentBonus(6) + DATE_LINE_BONUS + ELITE_BONUS);
+    expect(maxScore('ff')).toBe(205);
+  });
+
+  it('calibrates the score dial to fit each mode’s ceiling on clean steps', () => {
+    for (const mode of ['gb', 'ff'] as const) {
+      const dial = scoreGaugeCalibration(mode);
+      expect(dial.max).toBeGreaterThanOrEqual(maxScore(mode));
+      expect(dial.max - maxScore(mode)).toBeLessThan(dial.majors[1]); // snug, not padded
+      expect(dial.majors[0]).toBe(0);
+      expect(dial.majors[dial.majors.length - 1]).toBe(dial.max);
+      const step = dial.majors[1] - dial.majors[0];
+      dial.majors.forEach((m, i) => expect(m).toBe(i * step));
+      // Minor ticks land every 5 points on both dials.
+      expect(step / (dial.minorsPerInterval + 1)).toBe(5);
+    }
+    expect(scoreGaugeCalibration('gb').max).toBe(160);
+    expect(scoreGaugeCalibration('ff').max).toBe(210);
+  });
+});
+
+describe('gaugeNeedleDeg', () => {
+  it('sweeps 270° clockwise from the bottom-left stop', () => {
+    expect(gaugeNeedleDeg(0, 160)).toBe(-135);
+    expect(gaugeNeedleDeg(80, 160)).toBe(0);
+    expect(gaugeNeedleDeg(160, 160)).toBe(135);
+  });
+
+  it('clamps outside the dial instead of spinning past the stops', () => {
+    expect(gaugeNeedleDeg(-5, 100)).toBe(-135);
+    expect(gaugeNeedleDeg(205, 160)).toBe(135); // an FF score can exceed the dial
+    expect(gaugeNeedleDeg(3, 0)).toBe(-135);
+  });
+});
+
+describe('resolveHomeAirport', () => {
+  const byCode = Object.fromEntries(ALL.map((a) => [a.iata, a]));
+
+  it('reads 3 letters as an IATA code, case-insensitively', () => {
+    expect(resolveHomeAirport(ALL, byCode, 'RDU')?.iata).toBe('RDU');
+    expect(resolveHomeAirport(ALL, byCode, 'rdu')?.iata).toBe('RDU');
+  });
+
+  it('resolves a city name to its nearest (largest, prefix-first) airport', () => {
+    expect(resolveHomeAirport(ALL, byCode, 'Raleigh')?.iata).toBe('RDU');
+    expect(resolveHomeAirport(ALL, byCode, 'london')?.iata).toBe('LHR');
+    expect(resolveHomeAirport(ALL, byCode, 'tokyo')?.continent).toBe('AS');
+  });
+
+  it('returns null for too-short or unmatchable input', () => {
+    expect(resolveHomeAirport(ALL, byCode, '')).toBeNull();
+    expect(resolveHomeAirport(ALL, byCode, 'zz')).toBeNull();
+    expect(resolveHomeAirport(ALL, byCode, 'qqqqxyz')).toBeNull();
+    // 3 letters that aren't a code stay null rather than city-searching —
+    // "Ral" shouldn't jump to some airport mid-keystroke.
+    expect(resolveHomeAirport(ALL, byCode, 'XQZ')).toBeNull();
+  });
+});
+
+describe('General Boarding draw', () => {
+  const ROUNDS = 400;
+
+  function avgRoutes(mode: 'gb' | 'ff', seed: number): number {
+    const rng = mulberry32(seed);
+    let total = 0;
+    for (let i = 0; i < ROUNDS; i++) {
+      for (const a of buildBatch(ALL, new Set(), rng, { mode })) total += a.routes.length;
+    }
+    return total / (ROUNDS * BATCH_SIZE);
+  }
+
+  it('draws noticeably larger airports than Frequent Flyer', () => {
+    // Linear routes weighting vs √routes: friendlier skies = more major hubs.
+    expect(avgRoutes('gb', 42)).toBeGreaterThan(avgRoutes('ff', 42) * 1.15);
+  });
+
+  it('leans toward the home continent in GB', () => {
+    const share = (homeContinent?: Continent) => {
+      const rng = mulberry32(7);
+      let na = 0;
+      for (let i = 0; i < ROUNDS; i++) {
+        for (const a of buildBatch(ALL, new Set(), rng, { mode: 'gb', homeContinent })) {
+          if (a.continent === 'NA') na++;
+        }
+      }
+      return na / (ROUNDS * BATCH_SIZE);
+    };
+    expect(share('NA')).toBeGreaterThan(share(undefined));
+  });
+
+  it('still covers every continent in GB', () => {
+    for (let seed = 1; seed <= 10; seed++) {
+      const present = new Set(
+        buildBatch(ALL, new Set(), mulberry32(seed), { mode: 'gb', homeContinent: 'NA' }).map((a) => a.continent),
+      );
+      for (const continent of CONTINENTS) expect(present).toContain(continent);
+    }
+  });
+});
+
+describe('event lines', () => {
+  it('supplies the promised pools of ~40 each, all distinct', () => {
+    expect(POSITIVE_EVENTS).toHaveLength(40);
+    expect(NEGATIVE_EVENTS).toHaveLength(40);
+    expect(new Set([...POSITIVE_EVENTS, ...NEGATIVE_EVENTS]).size).toBe(80);
+  });
+
+  it('fires on ~40% of reveals — a treat, not wallpaper', () => {
+    const rng = mulberry32(9);
+    let fired = 0;
+    for (let i = 0; i < 1000; i++) {
+      if (rollEventLine('positive', new Set(), rng)) fired++;
+    }
+    expect(fired / 1000).toBeGreaterThan(0.33);
+    expect(fired / 1000).toBeLessThan(0.47);
+  });
+
+  it('never repeats a line within a batch, and never crosses pools', () => {
+    const used = new Set<string>();
+    const rng: Rng = () => 0.1; // gate always fires, first index picked
+    const seen: string[] = [];
+    for (let i = 0; i < 40; i++) {
+      const line = rollEventLine('negative', used, rng);
+      if (line) seen.push(line);
+    }
+    expect(new Set(seen).size).toBe(seen.length);
+    for (const line of seen) expect(NEGATIVE_EVENTS).toContain(line);
+    // Pool exhausted for this (absurdly long) batch: returns null, no crash.
+    expect(rollEventLine('negative', used, rng)).toBeNull();
+  });
+
+  it('stays quiet when the gate does not fire', () => {
+    expect(rollEventLine('positive', new Set(), () => 0.9)).toBeNull();
+  });
+});
+
+describe('roundPoints (FF city-hint costs)', () => {
+  it('starts at 10, drops 1 per city hint, floors at 2', () => {
+    // City hints are FF's only priced reveal — clue pulls, the country
+    // reveal, and name reveals are free in both modes.
+    expect(roundPoints(0)).toBe(10);
+    expect(roundPoints(FF_CITY_HINT_COST)).toBe(9);
+    expect(roundPoints(4 * FF_CITY_HINT_COST)).toBe(6);
+    expect(roundPoints(99)).toBe(2);
   });
 });

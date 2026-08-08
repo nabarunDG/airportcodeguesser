@@ -1,39 +1,50 @@
 // The ported prototype `Component` class, as a React hook. Owns the screen
-// state machine, batch/round progression, scoring, hint/clue reveal state,
-// the idle timer, and leaderboard actions. Per-round presentational
-// concerns that don't affect gameplay (the local clock, weather) are
-// deliberately kept OUT of this hook and live as small standalone hooks used
-// directly by the screens that render them — see useWeather/useLocalClock.
-// "Time on board" is the exception: it's part of gameplay state here, since
-// the summary must show the batch's *finished* duration (batchEndMs), not a
-// clock that keeps running while the boarding pass is on screen.
+// state machine, batch/round progression, scoring, clue/reveal state, the
+// idle timers, journey/bonus accounting, and leaderboard actions. Per-round
+// presentational concerns that don't affect gameplay (the local clock,
+// weather) are deliberately kept OUT of this hook and live as small
+// standalone hooks used directly by the screens that render them — see
+// useWeather/useLocalClock. "Time on board" is the exception: it's part of
+// gameplay state here, since the summary must show the batch's *finished*
+// duration (batchEndMs), not a clock that keeps running while the boarding
+// pass is on screen.
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import type {
   Airport,
+  Bonuses,
   ClueKey,
   Choice,
+  Continent,
   HintKey,
   LbDir,
   LbSort,
   LeaderboardRow,
+  Mode,
   Screen,
   StampRecord,
   TodayStats,
 } from '../types';
 import {
   BATCH_SIZE,
-  CITY_REVEAL_COST,
-  HINT_COST,
+  CLUE_NUDGE_SECONDS,
+  DATE_LINE_BONUS,
+  ELITE_BONUS,
+  FF_CITY_HINT_COST,
   IDLE_NUDGE_SECONDS,
   IDLE_SKIP_SECONDS,
-  MIN_FILL_ROUTES,
+  STREAK_LENGTH,
+  UPGRADE_BONUS,
+  roundPoints,
   buildBatch,
+  continentBonus,
+  crossesDateLine,
+  haversineKm,
   makeChoices,
   makeFact,
-  roundPoints,
   todayUTC,
   weekStartUTC,
 } from '../lib/gameLogic';
+import { rollEventLine } from '../lib/eventLines';
 import { stampSlots } from '../lib/stampTemplates';
 import type { LeaderboardClient } from '../lib/leaderboardClient';
 import { getPlayerId } from '../lib/playerId';
@@ -51,8 +62,39 @@ interface ClueFlags {
   dest: boolean;
 }
 
+const MODE_KEY = 'gatecheck_mode';
+const HOME_KEY = 'gatecheck_home_airport';
+
+function loadMode(): Mode {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'ff' ? 'ff' : 'gb';
+  } catch {
+    return 'gb';
+  }
+}
+
+function loadHomeAirport(): string | null {
+  try {
+    const v = localStorage.getItem(HOME_KEY);
+    return v && /^[A-Z]{3}$/.test(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function persist(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // localStorage unavailable — the choice just doesn't survive a reload.
+  }
+}
+
 interface EngineState {
   screen: Screen;
+  mode: Mode;
+  /** Validated IATA from check-in. Required before round 1; scores auto-post to it. */
+  homeAirport: string | null;
   batchNum: number;
   roundIdx: number;
   score: number;
@@ -63,18 +105,31 @@ interface EngineState {
   answeredIdx: number;
   timedOut: boolean;
   nudge: boolean;
+  /** The 45s "clues are free" toast — separate from the 120s taxi-away nudge. */
+  clueNudge: boolean;
   lastRoundPoints: number;
+  /** Upgrade bonus banked on this round's answer (0 outside a streak hit). */
+  lastUpgradeBonus: number;
+  /** Great-circle leg to this round's answer from the previous correct guess (or home). */
+  lastLegKm: number | null;
+  lastLegFrom: string | null;
+  /** This round's Oregon-Trail event line, when the ~40% gate fired. */
+  eventLine: string | null;
   lastRoundStamp: StampRecord | null; // every correct answer earns one
   stamps: StampRecord[]; // this batch's stamps, in the order earned
+  /** IATA codes of correct guesses, in round order — distance/map derive from this + home. */
+  journey: string[];
+  /** Per-round correct/missed flags in round order, for the boarding-pass map. */
+  roundResults: boolean[];
+  streak: number;
+  bonuses: Bonuses;
   batchEndMs: number | null; // when the batch's final round was answered/skipped — freezes "time on board"
+  saved: boolean;
   clues: ClueFlags;
   hints: HintFlags;
-  revealedCities: number[]; // choice indices whose city has been paid-reveal'd this round
+  revealedCities: number[]; // choice indices whose city has been revealed this round (FF)
   choices: Choice[];
   fact: string;
-  homeInput: string;
-  homeErr: string;
-  saved: boolean;
   lbRows: LeaderboardRow[];
   lbToday: TodayStats;
   lbSort: LbSort;
@@ -85,9 +140,12 @@ const NO_TODAY_STATS: TodayStats = { pax: 0, points: 0 };
 
 const NO_CLUES: ClueFlags = { car: false, dest: false };
 const NO_HINTS: HintFlags = { country: false, carrierNames: false, destNames: false };
+const NO_BONUSES: Bonuses = { upgrades: 0, continents: 0, dateLine: 0, elite: 0 };
 
 const initialState: EngineState = {
   screen: 'home',
+  mode: loadMode(),
+  homeAirport: loadHomeAirport(),
   batchNum: 0,
   roundIdx: 0,
   score: 0,
@@ -98,45 +156,77 @@ const initialState: EngineState = {
   answeredIdx: -1,
   timedOut: false,
   nudge: false,
+  clueNudge: false,
   lastRoundPoints: 0,
+  lastUpgradeBonus: 0,
+  lastLegKm: null,
+  lastLegFrom: null,
+  eventLine: null,
   lastRoundStamp: null,
   stamps: [],
+  journey: [],
+  roundResults: [],
+  streak: 0,
+  bonuses: NO_BONUSES,
   batchEndMs: null,
+  saved: false,
   clues: NO_CLUES,
   hints: NO_HINTS,
   revealedCities: [],
   choices: [],
   fact: '',
-  homeInput: '',
-  homeErr: '',
-  saved: false,
   lbRows: [],
   lbToday: NO_TODAY_STATS,
   lbSort: 'total',
   lbDir: 'desc',
 };
 
+interface EndBonuses {
+  continents: number;
+  dateLine: number;
+  elite: number;
+}
+
 type Action =
+  | { type: 'SET_MODE'; mode: Mode }
+  | { type: 'GO_CHECKIN' }
+  | { type: 'CHECK_IN'; iata: string }
   | { type: 'START_BATCH' }
   | { type: 'START_ROUND'; idx: number; choices: Choice[]; fact: string }
-  | { type: 'PICK'; idx: number; ok: boolean; points: number; stamp: StampRecord | null; now: number }
+  | {
+      type: 'PICK';
+      idx: number;
+      ok: boolean;
+      points: number;
+      upgradeBonus: number;
+      legKm: number | null;
+      legFrom: string | null;
+      eventLine: string | null;
+      stamp: StampRecord | null;
+      now: number;
+    }
   | { type: 'REVEAL' }
-  | { type: 'SKIP_ROUND'; now: number }
-  | { type: 'GO_TO_SUMMARY'; now: number }
+  | { type: 'SKIP_ROUND'; now: number; eventLine: string | null }
+  | { type: 'GO_TO_SUMMARY'; now: number; end: EndBonuses }
   | { type: 'USE_HINT'; key: HintKey }
   | { type: 'PULL_CLUE'; key: ClueKey }
   | { type: 'REVEAL_CITY'; idx: number }
   | { type: 'SET_NUDGE'; value: boolean }
+  | { type: 'SET_CLUE_NUDGE'; value: boolean }
   | { type: 'GO_HOME' }
   | { type: 'GO_LEADERBOARD' }
-  | { type: 'SET_HOME_INPUT'; value: string }
-  | { type: 'SET_HOME_ERR'; value: string }
   | { type: 'SCORE_SAVED' }
   | { type: 'SET_LB_ROWS'; rows: LeaderboardRow[]; today: TodayStats }
   | { type: 'SET_LB_SORT'; sort: LbSort; dir: LbDir };
 
 function reducer(state: EngineState, action: Action): EngineState {
   switch (action.type) {
+    case 'SET_MODE':
+      return { ...state, mode: action.mode };
+    case 'GO_CHECKIN':
+      return { ...state, screen: 'checkin', nudge: false };
+    case 'CHECK_IN':
+      return { ...state, homeAirport: action.iata };
     case 'START_BATCH':
       return {
         ...state,
@@ -146,10 +236,12 @@ function reducer(state: EngineState, action: Action): EngineState {
         hintsUsedTotal: 0,
         doneRounds: 0,
         saved: false,
-        homeInput: '',
-        homeErr: '',
         lastRoundStamp: null,
         stamps: [],
+        journey: [],
+        roundResults: [],
+        streak: 0,
+        bonuses: NO_BONUSES,
         batchEndMs: null,
       };
     case 'START_ROUND':
@@ -163,6 +255,11 @@ function reducer(state: EngineState, action: Action): EngineState {
         answeredIdx: -1,
         timedOut: false,
         nudge: false,
+        clueNudge: false,
+        lastUpgradeBonus: 0,
+        lastLegKm: null,
+        lastLegFrom: null,
+        eventLine: null,
         clues: NO_CLUES,
         hints: NO_HINTS,
         revealedCities: [],
@@ -173,13 +270,24 @@ function reducer(state: EngineState, action: Action): EngineState {
         answered: true,
         answeredIdx: action.idx,
         timedOut: false,
+        nudge: false,
+        clueNudge: false,
         // Stamps are collectibles, not currency — they never move the score.
-        score: state.score + action.points,
+        // Upgrade bonuses do: they land with the answer that completed the streak.
+        score: state.score + action.points + action.upgradeBonus,
         correct: state.correct + (action.ok ? 1 : 0),
         doneRounds: state.doneRounds + 1,
         lastRoundPoints: action.points,
+        lastUpgradeBonus: action.upgradeBonus,
+        lastLegKm: action.legKm,
+        lastLegFrom: action.legFrom,
+        eventLine: action.eventLine,
         lastRoundStamp: action.stamp,
         stamps: action.stamp ? [...state.stamps, action.stamp] : state.stamps,
+        journey: action.ok && action.stamp ? [...state.journey, action.stamp.iata] : state.journey,
+        roundResults: [...state.roundResults, action.ok],
+        streak: action.ok ? state.streak + 1 : 0,
+        bonuses: { ...state.bonuses, upgrades: state.bonuses.upgrades + action.upgradeBonus },
         // The batch's final answer freezes "time on board" — the summary shows
         // this fixed duration, not a still-ticking clock.
         batchEndMs: state.roundIdx + 1 >= BATCH_SIZE ? action.now : state.batchEndMs,
@@ -196,15 +304,35 @@ function reducer(state: EngineState, action: Action): EngineState {
         answeredIdx: -1,
         timedOut: true,
         nudge: false,
+        clueNudge: false,
         lastRoundPoints: 0,
+        lastUpgradeBonus: 0,
+        lastLegKm: null,
+        lastLegFrom: null,
+        eventLine: action.eventLine,
         lastRoundStamp: null,
+        roundResults: [...state.roundResults, false],
+        streak: 0,
         batchEndMs: state.roundIdx + 1 >= BATCH_SIZE ? action.now : state.batchEndMs,
         screen: 'reveal',
       };
     case 'GO_TO_SUMMARY':
       // batchEndMs is normally already frozen by the final PICK/SKIP_ROUND;
       // the fallback only covers a short batch (pool ran dry below BATCH_SIZE).
-      return { ...state, screen: 'summary', batchEndMs: state.batchEndMs ?? action.now };
+      // End-of-batch bonuses (continents, date line, FF elite) land here so
+      // the boarding pass and the auto-posted score both see the final total.
+      return {
+        ...state,
+        screen: 'summary',
+        batchEndMs: state.batchEndMs ?? action.now,
+        score: state.score + action.end.continents + action.end.dateLine + action.end.elite,
+        bonuses: {
+          ...state.bonuses,
+          continents: action.end.continents,
+          dateLine: action.end.dateLine,
+          elite: action.end.elite,
+        },
+      };
     case 'USE_HINT':
       if (state.hints[action.key] || state.answered) return state;
       return {
@@ -221,18 +349,17 @@ function reducer(state: EngineState, action: Action): EngineState {
     case 'SET_NUDGE':
       if (state.nudge === action.value) return state;
       return { ...state, nudge: action.value };
+    case 'SET_CLUE_NUDGE':
+      if (state.clueNudge === action.value) return state;
+      return { ...state, clueNudge: action.value };
     case 'GO_HOME':
       return { ...state, screen: 'home', nudge: false };
     case 'GO_LEADERBOARD':
       return { ...state, screen: 'leaderboard' };
-    case 'SET_HOME_INPUT':
-      return { ...state, homeInput: action.value, homeErr: '' };
-    case 'SET_HOME_ERR':
-      return { ...state, homeErr: action.value };
     case 'SCORE_SAVED':
       // Stays on 'summary' — the leaderboard is already rendered inline
       // there, so posting a score no longer needs to navigate anywhere.
-      return { ...state, saved: true, homeErr: '' };
+      return { ...state, saved: true };
     case 'SET_LB_ROWS':
       return { ...state, lbRows: action.rows, lbToday: action.today };
     case 'SET_LB_SORT':
@@ -264,9 +391,14 @@ export interface GameEngine {
   state: EngineState;
   currentAirport: Airport | undefined;
   byCode: Record<string, Airport>;
+  /** This batch's airports in round order — the boarding-pass map's stops. */
+  batch: Airport[];
   hintsUsedThisRound: number;
-  countryHintFree: boolean;
   batchStartMs: number | null;
+  setMode: (mode: Mode) => void;
+  goCheckin: () => void;
+  /** Confirms the (already validated) home airport and starts boarding. */
+  checkIn: (iata: string) => void;
   start: () => void;
   pick: (idx: number) => void;
   useHint: (key: HintKey) => void;
@@ -277,8 +409,6 @@ export interface GameEngine {
   goLeaderboard: () => void;
   act: () => void;
   dismissNudge: () => void;
-  setHomeInput: (value: string) => void;
-  saveScore: () => Promise<void>;
   sortByTotal: () => void;
   sortByAvg: () => void;
 }
@@ -295,28 +425,31 @@ export function useGameEngine(
   const usedRef = useLazyRef<Set<string>>(loadUsedToday);
   const stampedRef = useLazyRef<Set<string>>(loadStampedToday);
   const batchRef = useRef<Airport[]>([]);
+  const usedEventLinesRef = useRef<Set<string>>(new Set());
   const lastActRef = useRef<number>(Date.now());
   const batchStartRef = useRef<number | null>(null);
 
   const currentAirport = batchRef.current[state.roundIdx];
   const hintsUsedThisRound = Object.values(state.hints).filter(Boolean).length + state.revealedCities.length;
-  // Small regional answers are unguessable without a geographic anchor, so
-  // the country hint is free on those rounds (the other hints still cost).
-  const countryHintFree = Boolean(currentAirport && currentAirport.routes.length < MIN_FILL_ROUTES);
-  // Boolean hints (country/carrierNames/destNames) each cost HINT_COST
-  // (country possibly free, see above); every per-option city reveal costs
-  // CITY_REVEAL_COST — summed for `roundPoints`, since the kinds of reveal
-  // aren't priced the same.
-  const hintsCostThisRound =
-    (state.hints.country && !countryHintFree ? HINT_COST : 0) +
-    (state.hints.carrierNames ? HINT_COST : 0) +
-    (state.hints.destNames ? HINT_COST : 0) +
-    state.revealedCities.length * CITY_REVEAL_COST;
+  // Only Frequent Flyer's city hints cost points (−1 each). Everything else —
+  // clue pulls, the country reveal, name reveals, all of GB — is free.
+  const hintsCostThisRound = state.mode === 'ff' ? state.revealedCities.length * FF_CITY_HINT_COST : 0;
 
   const act = useCallback(() => {
     lastActRef.current = Date.now();
     dispatch({ type: 'SET_NUDGE', value: false });
+    dispatch({ type: 'SET_CLUE_NUDGE', value: false });
   }, []);
+
+  const setMode = useCallback((mode: Mode) => {
+    persist(MODE_KEY, mode);
+    dispatch({ type: 'SET_MODE', mode });
+  }, []);
+
+  const goCheckin = useCallback(() => {
+    act();
+    dispatch({ type: 'GO_CHECKIN' });
+  }, [act]);
 
   const startRound = useCallback(
     (idx: number) => {
@@ -338,19 +471,50 @@ export function useGameEngine(
   );
 
   const startBatch = useCallback(() => {
-    const batch = buildBatch(airports, usedRef.current);
+    const home = byCode[state.homeAirport ?? ''];
+    const batch = buildBatch(airports, usedRef.current, Math.random, {
+      mode: state.mode,
+      homeContinent: home?.continent as Continent | undefined,
+    });
     saveUsedToday(usedRef.current);
     batchRef.current = batch;
+    usedEventLinesRef.current = new Set();
     batchStartRef.current = Date.now();
     dispatch({ type: 'START_BATCH' });
     startRound(0);
     // `usedRef` is a stable object identity across renders (see useLazyRef)
     // — included for accuracy, but it never actually changes.
-  }, [airports, startRound, usedRef]);
+  }, [airports, byCode, startRound, state.homeAirport, state.mode, usedRef]);
 
+  // Check-in is required before round 1 (the home airport anchors the draw
+  // bias, the distance metric, and the auto-post); "Play again" skips it
+  // because the answer can't have changed mid-session.
   const start = useCallback(() => {
-    startBatch();
-  }, [startBatch]);
+    if (state.homeAirport) startBatch();
+    else dispatch({ type: 'GO_CHECKIN' });
+  }, [startBatch, state.homeAirport]);
+
+  const checkIn = useCallback(
+    (iata: string) => {
+      const code = iata.toUpperCase();
+      if (!byCode[code]) return;
+      persist(HOME_KEY, code);
+      dispatch({ type: 'CHECK_IN', iata: code });
+      // startBatch reads homeAirport from state, which hasn't committed yet —
+      // build this first batch's draw bias from the airport just checked in.
+      const batch = buildBatch(airports, usedRef.current, Math.random, {
+        mode: state.mode,
+        homeContinent: byCode[code].continent as Continent,
+      });
+      saveUsedToday(usedRef.current);
+      batchRef.current = batch;
+      usedEventLinesRef.current = new Set();
+      batchStartRef.current = Date.now();
+      dispatch({ type: 'START_BATCH' });
+      startRound(0);
+    },
+    [airports, byCode, startRound, state.mode, usedRef],
+  );
 
   const revealTimerRef = useRef<number | null>(null);
   useEffect(() => {
@@ -365,12 +529,20 @@ export function useGameEngine(
       act();
       const choice = state.choices[idx];
       if (!choice) return;
-      const points = choice.ok ? roundPoints(hintsCostThisRound) : 0;
+      const ok = choice.ok;
+      const points = ok ? roundPoints(hintsCostThisRound) : 0;
+      // Upgrade bonus: +10 for every completed 3-correct streak, double in FF
+      // — bonuses instead of penalties, so streaks feel like fare upgrades.
+      const streak = ok ? state.streak + 1 : 0;
+      const upgradeBonus =
+        ok && streak > 0 && streak % STREAK_LENGTH === 0 ? UPGRADE_BONUS * (state.mode === 'ff' ? 2 : 1) : 0;
       // Every correct answer earns a stamp — ten right answers fill a page.
       // The day-scoped country set no longer gates the award, only whether
       // this one gets the reveal-screen press (`firstVisit`).
       let stamp: StampRecord | null = null;
-      if (choice.ok && currentAirport) {
+      let legKm: number | null = null;
+      let legFrom: string | null = null;
+      if (ok && currentAirport) {
         const firstVisit = !stampedRef.current.has(currentAirport.country);
         if (firstVisit) {
           stampedRef.current.add(currentAirport.country);
@@ -382,14 +554,23 @@ export function useGameEngine(
           firstVisit,
           slots: stampSlots(currentAirport, todayUTC()),
         };
+        // Distance flown: from the previous correctly-guessed airport, or
+        // home for the journey's first leg.
+        const fromCode = state.journey[state.journey.length - 1] ?? state.homeAirport;
+        const from = fromCode ? byCode[fromCode] : undefined;
+        if (from) {
+          legKm = haversineKm(from.latitude, from.longitude, currentAirport.latitude, currentAirport.longitude);
+          legFrom = from.iata;
+        }
       }
-      dispatch({ type: 'PICK', idx, ok: choice.ok, points, stamp, now: Date.now() });
+      const eventLine = rollEventLine(ok ? 'positive' : 'negative', usedEventLinesRef.current);
+      dispatch({ type: 'PICK', idx, ok, points, upgradeBonus, legKm, legFrom, eventLine, stamp, now: Date.now() });
       if (revealTimerRef.current != null) window.clearTimeout(revealTimerRef.current);
       revealTimerRef.current = window.setTimeout(() => {
         dispatch({ type: 'REVEAL' });
       }, ANSWER_REVEAL_DELAY_MS);
     },
-    [act, currentAirport, hintsCostThisRound, stampedRef, state.answered, state.choices],
+    [act, byCode, currentAirport, hintsCostThisRound, stampedRef, state.answered, state.choices, state.homeAirport, state.journey, state.mode, state.streak],
   );
 
   const useHint = useCallback(
@@ -419,24 +600,42 @@ export function useGameEngine(
   const next = useCallback(() => {
     const nextIdx = state.roundIdx + 1;
     if (nextIdx >= Math.min(BATCH_SIZE, batchRef.current.length)) {
+      // End-of-batch bonuses, computed here so the summary dispatch carries
+      // the final score in one step (and the auto-post effect below sees it).
+      const continentsTouched = new Set(state.stamps.map((s) => s.continent)).size;
+      const legs = [state.homeAirport, ...state.journey]
+        .map((code) => (code ? byCode[code] : undefined))
+        .filter((a): a is Airport => Boolean(a));
+      let dateLine = 0;
+      for (let i = 1; i < legs.length; i++) {
+        if (crossesDateLine(legs[i - 1].longitude, legs[i].longitude)) {
+          dateLine = DATE_LINE_BONUS;
+          break;
+        }
+      }
+      const end: EndBonuses = {
+        continents: continentBonus(continentsTouched),
+        dateLine,
+        elite: state.mode === 'ff' ? ELITE_BONUS : 0,
+      };
       if (batchStartRef.current != null) {
         accumulateTime(Math.floor((Date.now() - batchStartRef.current) / 1000));
         // One anonymous row per finished batch (fire-and-forget, same trust
         // model as the visits ping). Duration runs to the final answer/skip
-        // (batchEndMs), not to this button click.
+        // (batchEndMs), not to this button click. Score includes end bonuses.
         reportBatch({
           durationSeconds: Math.max(0, Math.floor(((state.batchEndMs ?? Date.now()) - batchStartRef.current) / 1000)),
-          score: state.score,
+          score: state.score + end.continents + end.dateLine + end.elite,
           correct: state.correct,
           hintsUsed: state.hintsUsedTotal,
           stamps: state.stamps.length,
         });
       }
-      dispatch({ type: 'GO_TO_SUMMARY', now: Date.now() });
+      dispatch({ type: 'GO_TO_SUMMARY', now: Date.now(), end });
     } else {
       startRound(nextIdx);
     }
-  }, [startRound, state.batchEndMs, state.correct, state.hintsUsedTotal, state.roundIdx, state.score, state.stamps.length]);
+  }, [byCode, startRound, state.batchEndMs, state.correct, state.hintsUsedTotal, state.homeAirport, state.journey, state.mode, state.roundIdx, state.score, state.stamps]);
 
   const goHome = useCallback(() => {
     act();
@@ -445,10 +644,6 @@ export function useGameEngine(
 
   const goLeaderboard = useCallback(() => {
     dispatch({ type: 'GO_LEADERBOARD' });
-  }, []);
-
-  const setHomeInput = useCallback((value: string) => {
-    dispatch({ type: 'SET_HOME_INPUT', value: value.toUpperCase().slice(0, 3) });
   }, []);
 
   const refreshLeaderboard = useCallback(async () => {
@@ -473,36 +668,25 @@ export function useGameEngine(
     }
   }, [state.screen, state.lbSort, state.lbDir, refreshLeaderboard]);
 
-  const saveScore = useCallback(async () => {
-    const home = state.homeInput.toUpperCase().trim();
-    if (!home) {
-      dispatch({ type: 'SET_HOME_ERR', value: "Enter your home airport's 3-letter code." });
-      return;
-    }
-    if (!byCode[home]) {
-      dispatch({ type: 'SET_HOME_ERR', value: `${home} isn't a commercial airport we know — try your nearest one.` });
-      return;
-    }
-    if (state.doneRounds < BATCH_SIZE) {
-      dispatch({
-        type: 'SET_HOME_ERR',
-        value: "Only full sets of 10 count — this group had skipped rounds, so it can't be posted.",
+  // Auto-post: the home airport was captured at check-in, so a finished
+  // journey lands on the board with no form — killing the "embarrassed to
+  // type my airport" drop-off. Only full sets of 10 count, as before.
+  useEffect(() => {
+    if (state.screen !== 'summary' || state.saved) return;
+    if (state.doneRounds < BATCH_SIZE || !state.homeAirport) return;
+    dispatch({ type: 'SCORE_SAVED' }); // optimistic guard against double-posting
+    void leaderboardClient
+      .submitScore({ airport: state.homeAirport, playerId: getPlayerId(), score: state.score })
+      .then((result) => {
+        if (result.ok) {
+          // Refresh right away so the player's own row/rank shows up
+          // immediately rather than waiting on the screen-driven effect.
+          refreshLeaderboard().catch(() => {
+            dispatch({ type: 'SET_LB_ROWS', rows: [], today: NO_TODAY_STATS });
+          });
+        }
       });
-      return;
-    }
-    const result = await leaderboardClient.submitScore({ airport: home, playerId: getPlayerId(), score: state.score });
-    if (!result.ok) {
-      dispatch({ type: 'SET_HOME_ERR', value: result.error ?? 'Could not post your score — try again.' });
-      return;
-    }
-    dispatch({ type: 'SCORE_SAVED' });
-    // Refresh right away so the player's own row/rank shows up immediately,
-    // rather than waiting on the screen-driven effect (screen doesn't change
-    // on save anymore — we're already sitting on 'summary').
-    refreshLeaderboard().catch(() => {
-      dispatch({ type: 'SET_LB_ROWS', rows: [], today: NO_TODAY_STATS });
-    });
-  }, [byCode, leaderboardClient, refreshLeaderboard, state.doneRounds, state.homeInput, state.score]);
+  }, [leaderboardClient, refreshLeaderboard, state.doneRounds, state.homeAirport, state.saved, state.score, state.screen]);
 
   const sortByTotal = useCallback(() => {
     if (state.lbSort !== 'total') dispatch({ type: 'SET_LB_SORT', sort: 'total', dir: 'desc' });
@@ -514,29 +698,36 @@ export function useGameEngine(
     else dispatch({ type: 'SET_LB_SORT', sort: 'avg', dir: state.lbDir === 'desc' ? 'asc' : 'desc' });
   }, [state.lbDir, state.lbSort]);
 
-  // Idle timer — 120s nudge, 150s auto-skip — active only while sitting on an
-  // unanswered game round, matching the design README's timeout rules.
+  // Idle timers — 45s clue nudge (zero clues pulled), 120s taxi-away dialog,
+  // 150s auto-skip — active only while sitting on an unanswered game round.
+  const cluesPulled = state.clues.car || state.clues.dest || hintsUsedThisRound > 0;
   useEffect(() => {
     if (state.screen !== 'game' || state.answered) return;
     const id = setInterval(() => {
       const idleSeconds = (Date.now() - lastActRef.current) / 1000;
       if (idleSeconds > IDLE_SKIP_SECONDS) {
-        dispatch({ type: 'SKIP_ROUND', now: Date.now() });
+        const eventLine = rollEventLine('negative', usedEventLinesRef.current);
+        dispatch({ type: 'SKIP_ROUND', now: Date.now(), eventLine });
       } else if (idleSeconds > IDLE_NUDGE_SECONDS) {
         dispatch({ type: 'SET_NUDGE', value: true });
+      } else if (idleSeconds > CLUE_NUDGE_SECONDS && !cluesPulled) {
+        dispatch({ type: 'SET_CLUE_NUDGE', value: true });
       }
     }, 1000);
     return () => clearInterval(id);
-  }, [state.screen, state.answered]);
+  }, [state.screen, state.answered, cluesPulled]);
 
   return useMemo(
     () => ({
       state,
       currentAirport,
       byCode,
+      batch: batchRef.current,
       hintsUsedThisRound,
-      countryHintFree,
       batchStartMs: batchStartRef.current,
+      setMode,
+      goCheckin,
+      checkIn,
       start,
       pick,
       useHint,
@@ -547,8 +738,6 @@ export function useGameEngine(
       goLeaderboard,
       act,
       dismissNudge: act,
-      setHomeInput,
-      saveScore,
       sortByTotal,
       sortByAvg,
     }),
@@ -557,10 +746,12 @@ export function useGameEngine(
       currentAirport,
       byCode,
       hintsUsedThisRound,
-      countryHintFree,
+      setMode,
+      goCheckin,
+      checkIn,
       start,
-      // batchStartRef.current is intentionally read fresh each render (see
-      // above) rather than added here — refs aren't reactive dependencies.
+      // batchRef.current / batchStartRef.current are intentionally read fresh
+      // each render rather than added here — refs aren't reactive dependencies.
       pick,
       useHint,
       pullClue,
@@ -569,8 +760,6 @@ export function useGameEngine(
       goHome,
       goLeaderboard,
       act,
-      setHomeInput,
-      saveScore,
       sortByTotal,
       sortByAvg,
     ],

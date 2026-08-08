@@ -1,8 +1,19 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { GameEngine } from '../../hooks/useGameEngine';
-import { boardGroup, ffTier, fmtDur, todayDisplay } from '../../lib/gameLogic';
+import {
+  boardGroup,
+  ffTier,
+  fmtDistance,
+  fmtDur,
+  haversineKm,
+  journeyMilestone,
+  todayDisplay,
+} from '../../lib/gameLogic';
+import type { Airport } from '../../types';
 import PassportStamp from '../PassportStamp';
+import TrademarkFooter from '../TrademarkFooter';
 import FlightLeadersBoard from './summary/FlightLeadersBoard';
+import FlightPathMap, { type MapStop } from './summary/FlightPathMap';
 import PassportBook from './summary/PassportBook';
 
 interface Props {
@@ -10,7 +21,7 @@ interface Props {
 }
 
 export default function SummaryScreen({ engine }: Props) {
-  const { state } = engine;
+  const { state, batch, byCode } = engine;
   // The passport opens over this screen on arrival, then folds itself away
   // into the row below — a transition, not a block, so Flight Leaders keeps
   // its place. Reopenable from the row.
@@ -25,6 +36,47 @@ export default function SummaryScreen({ engine }: Props) {
       : '—';
   const group = boardGroup(state.score);
   const flightNo = `GC-${state.batchNum}0${state.correct}`;
+
+  const home = state.homeAirport ? byCode[state.homeAirport] : undefined;
+  const milestone = journeyMilestone(state.stamps.length);
+  const journeyLabel = milestone
+    ? `${milestone} journey`
+    : `${state.stamps.length} stamp${state.stamps.length === 1 ? '' : 's'} collected`;
+
+  // Journeys are graded by milestone, never pass/fail — the banner always
+  // names what was achieved; below 4 stamps it's just the honest count.
+  const { stops, routeCells, totalKm } = useMemo(() => {
+    // The map shows only the batch's ten stops; home anchors the route line
+    // and the distance math but stays off the map itself.
+    const stops: MapStop[] = batch.map((a, i) => ({ airport: a, correct: state.roundResults[i] === true }));
+    const routeCells = [
+      ...(home ? [{ code: home.iata, missed: false }] : []),
+      ...batch.map((a, i) => ({ code: a.iata, missed: state.roundResults[i] !== true })),
+    ];
+    // Miles flown runs leg by leg between correct guesses, starting at home —
+    // the same legs the reveal screen reported.
+    const flown: Airport[] = [
+      ...(home ? [home] : []),
+      ...state.journey.map((code) => byCode[code]).filter((a): a is Airport => Boolean(a)),
+    ];
+    let totalKm = 0;
+    for (let i = 1; i < flown.length; i++) {
+      totalKm += haversineKm(flown[i - 1].latitude, flown[i - 1].longitude, flown[i].latitude, flown[i].longitude);
+    }
+    return { stops, routeCells, totalKm };
+  }, [batch, byCode, home, state.journey, state.roundResults]);
+
+  const continentsTouched = new Set(state.stamps.map((s) => s.continent)).size;
+  // Every bonus the batch banked, spelled out under the stamps — the score up
+  // top stays a single number.
+  const bonusLines = [
+    state.bonuses.upgrades > 0 ? `Streak upgrade bonus +${state.bonuses.upgrades}` : null,
+    state.bonuses.continents > 0 ? `${continentsTouched} continents visited +${state.bonuses.continents}` : null,
+    state.bonuses.dateLine > 0 ? `International date line crossed +${state.bonuses.dateLine}` : null,
+    state.bonuses.elite > 0 ? `Elite fare bonus +${state.bonuses.elite}` : null,
+  ].filter((l): l is string => Boolean(l));
+
+  const label = { fontSize: 9.5, letterSpacing: '0.1em', color: 'var(--color-neutral-500)', textTransform: 'uppercase' } as const;
 
   return (
     <div
@@ -43,9 +95,8 @@ export default function SummaryScreen({ engine }: Props) {
     >
       <div style={{ width: 'min(400px, 100%)', borderRadius: 'var(--radius-lg)', background: 'var(--color-surface)', boxShadow: 'var(--shadow-md)', overflow: 'hidden' }}>
         {/* Play again lives up here, level with the card's name, because the
-            card is taller than a phone screen once the passport row and Flight
-            Leaders are on it — reaching the bottom button meant scrolling past
-            everything. The bottom one stays for players who read to the end. */}
+            card is taller than a phone screen — reaching the bottom button
+            meant scrolling past everything. */}
         <div style={{ padding: '10px 12px 10px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'var(--color-section)' }}>
           <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 500, letterSpacing: '0.12em', fontSize: 13 }}>GATE CHECK AIR</span>
           <button
@@ -67,64 +118,117 @@ export default function SummaryScreen({ engine }: Props) {
             Play again
           </button>
         </div>
-        <div style={{ padding: 18, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 10px', textAlign: 'left' }}>
+
+        {/* Journey banner: score beside the milestone the batch earned. */}
+        <div style={{ padding: '14px 18px 0', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+          <span style={label}>Score</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 40, color: 'var(--color-accent)', lineHeight: 1 }}>{state.score}</span>
+          <span style={{ fontSize: 11, letterSpacing: '0.14em', color: 'var(--color-accent)', textTransform: 'uppercase', textAlign: 'right' }}>
+            {journeyLabel}
+          </span>
+        </div>
+        {state.stamps.length > 0 && (
+          <div style={{ padding: '12px 16px 4px', display: 'flex', flexWrap: 'wrap', gap: '8px 10px', alignItems: 'center' }}>
+            {state.stamps.map((stamp, i) => (
+              <PassportStamp key={`${stamp.iata}-${i}`} stamp={stamp} width={String(stamp.continent).match(/^(AS|NA|OC)$/) ? 66 : 52} />
+            ))}
+            <button
+              onClick={onOpenPassport}
+              style={{
+                font: 'inherit',
+                fontSize: 11,
+                cursor: 'pointer',
+                color: 'var(--color-accent)',
+                background: 'transparent',
+                border: 0,
+                padding: 0,
+                textDecoration: 'underline',
+                textUnderlineOffset: 3,
+              }}
+            >
+              Open passport
+            </button>
+          </div>
+        )}
+
+        {bonusLines.length > 0 && (
+          <div style={{ padding: '4px 18px 0', display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left' }}>
+            {bonusLines.map((line) => (
+              <div key={line} style={{ fontSize: 11, color: 'var(--color-accent-300)' }}>
+                ✦ {line}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ padding: '8px 18px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 10px', textAlign: 'left' }}>
           <SummaryField label="Frequent Flyer Status" value={ffTier(state.score)} accent />
           <SummaryField label="Flight" value={flightNo} mono />
           <SummaryField label="Correct" value={`${state.correct} / 10`} mono />
-          {/* Boarding group moved out of the header band to make room for
-              Play again; paired with Stamps so the grid stays even. */}
           <SummaryField label="Boarding group" value={String(group)} mono />
-          <SummaryField label="Hints used" value={String(state.hintsUsedTotal)} mono />
           <SummaryField label="Stamps" value={String(state.stamps.length)} mono />
-          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'baseline', gap: 10, paddingTop: 4 }}>
-            <span style={{ fontSize: 9.5, letterSpacing: '0.1em', color: 'var(--color-neutral-500)', textTransform: 'uppercase' }}>Score</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 40, color: 'var(--color-accent)', lineHeight: 1 }}>{state.score}</span>
-            <span style={{ fontSize: 13, color: 'var(--color-neutral-500)' }}>/ 100</span>
+          <SummaryField label="Continents" value={`${continentsTouched} / 6`} mono />
+          <div style={{ gridColumn: '1 / -1' }}>
+            <div style={label}>Distance flown</div>
+            <div style={{ fontSize: 14, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+              {totalKm > 0 ? fmtDistance(totalKm) : '—'}
+            </div>
           </div>
         </div>
-        {state.stamps.length > 0 && (
-          <div style={{ borderTop: '1.5px dashed var(--color-divider)', padding: '14px 18px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-              <span style={{ fontSize: 9.5, letterSpacing: '0.1em', color: 'var(--color-neutral-500)', textTransform: 'uppercase' }}>
-                Passport · {state.stamps.length} stamp{state.stamps.length > 1 ? 's' : ''}
-              </span>
-              <button
-                onClick={onOpenPassport}
-                style={{
-                  font: 'inherit',
-                  fontSize: 11,
-                  cursor: 'pointer',
-                  color: 'var(--color-accent)',
-                  background: 'transparent',
-                  border: 0,
-                  padding: 0,
-                  textDecoration: 'underline',
-                }}
-              >
-                Open passport
-              </button>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 12px', alignItems: 'center' }}>
-              {state.stamps.map((stamp, i) => (
-                <PassportStamp key={`${stamp.iata}-${i}`} stamp={stamp} width={54} />
+
+        {/* The journey, mapped: numbered stops in round order (see the
+            handoff's 1f). Home is the unnumbered white dot. */}
+        {stops.length > 0 && (
+          <div style={{ borderTop: '1.5px dashed var(--color-divider)', padding: 12, textAlign: 'left' }}>
+            <FlightPathMap stops={stops} />
+            <div
+              style={{
+                fontSize: 10,
+                color: 'var(--color-neutral-500)',
+                fontFamily: 'var(--font-mono)',
+                letterSpacing: '0.02em',
+                padding: '6px 4px 0',
+              }}
+            >
+              {/* Deliberate two-row break — 5 codes + a hanging arrow up top,
+                  6 below — instead of whatever ragged wrap the viewport gives. */}
+              {(routeCells.length > 6 ? [routeCells.slice(0, 5), routeCells.slice(5)] : [routeCells]).map((row, r, rows) => (
+                <div key={r}>
+                  {row.map((cell, i) => (
+                    <span key={`${cell.code}-${i}`}>
+                      {i > 0 && ' → '}
+                      <span style={cell.missed ? { color: 'var(--color-neutral-700)', textDecoration: 'line-through' } : undefined}>
+                        {cell.code}
+                      </span>
+                    </span>
+                  ))}
+                  {rows.length > 1 && r === 0 && ' →'}
+                </div>
               ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 11, color: 'var(--color-neutral-400)', padding: '4px 4px 0' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 13, height: 13, borderRadius: '50%', background: 'var(--color-accent-600)', border: '1.5px solid var(--color-accent-100)' }} />
+                stamped
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 13, height: 13, borderRadius: '50%', background: '#14151d', border: '1.5px dashed var(--color-neutral-400)' }} />
+                missed
+              </span>
             </div>
           </div>
         )}
 
-        {/* The barcode used to sit above this line. Dropped once the passport
-            row landed: two blocks of dense ink on one card competed with each
-            other, and the stamps are the ones carrying meaning. */}
         <div style={{ borderTop: '1.5px dashed var(--color-divider)', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 10.5, color: 'var(--color-neutral-500)', fontVariantNumeric: 'tabular-nums' }}>
           <span>{todayDisplay()} UTC</span>
           <span>time on board {batchTime}</span>
         </div>
 
         {/* The leaderboard as the boarding pass's "stub" — same card, torn off
-            rather than a separate screen, so it's impossible to miss after
-            finishing a batch (see the implementation plan's UX rationale). */}
+            rather than a separate screen. The score up top already posted
+            itself to the check-in airport; no form here anymore. */}
         <div style={{ borderTop: '1.5px dashed var(--color-divider)', padding: '16px 18px', textAlign: 'left' }}>
-          <FlightLeadersBoard engine={engine} showPrompt />
+          <FlightLeadersBoard engine={engine} />
         </div>
       </div>
 
@@ -132,8 +236,10 @@ export default function SummaryScreen({ engine }: Props) {
         New boarding group
       </button>
 
+      <TrademarkFooter />
+
       {passportOpen && state.stamps.length > 0 && (
-        <PassportBook stamps={state.stamps} score={state.score} flightNo={flightNo} onClose={closePassport} />
+        <PassportBook stamps={state.stamps} score={state.score} flightNo={flightNo} homeAirport={state.homeAirport} onClose={closePassport} />
       )}
     </div>
   );
