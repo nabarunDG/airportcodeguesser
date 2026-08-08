@@ -156,23 +156,7 @@ export default function RevealScreen({ engine }: Props) {
         <p className="card-body" style={{ fontSize: 13.5 }}>{state.fact}</p>
       </div>
 
-      {/* Solid accent pill — the one action on this screen, so it carries the
-          most ink (user feedback: the outline button read as secondary). */}
-      <button
-        onClick={engine.next}
-        style={{
-          fontFamily: 'var(--font-heading)',
-          fontWeight: 500,
-          fontSize: 15,
-          cursor: 'pointer',
-          minHeight: 46,
-          minWidth: 220,
-          border: 0,
-          borderRadius: 24,
-          background: 'var(--color-accent-600)',
-          color: 'var(--color-accent-100)',
-        }}
-      >
+      <button className="btn btn-pill" onClick={engine.next} style={{ minHeight: 46, minWidth: 220 }}>
         {nextLabel}
       </button>
 

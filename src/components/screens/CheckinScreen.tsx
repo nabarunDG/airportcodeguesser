@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Airport } from '../../types';
 import { nearestAirports, searchAirportsWithCities } from '../../lib/gameLogic';
-import { browserTimezone, type GuessSource, type HomeGuess } from '../../lib/homeAirportGuess';
+import { browserTimezone, type HomeGuess } from '../../lib/homeAirportGuess';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { useCityIndex } from '../../hooks/useCityIndex';
 
@@ -13,29 +13,25 @@ interface Props {
   onCheckIn: (iata: string) => void;
 }
 
-const PLANE_ICON = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <path d="M21 16v-2l-8-2.5V6a1.5 1.5 0 0 0-3 0v5.5L2 14v2l8-1.5V19l-2.5 1.5V22l4-1 4 1v-1.5L13 19v-4.5z" />
-  </svg>
-);
-
-const PROVENANCE: Record<GuessSource, string> = {
-  saved: 'Where you flew from last time',
-  connection: 'Guessed from your connection',
-  timezone: 'Guessed from your timezone',
-  none: '',
-};
+/** Where the candidates on screen came from — drives the note and whether we preselect. */
+type Origin = 'saved' | 'connection' | 'timezone' | 'typed' | 'device' | 'none';
 
 /**
- * Check-in. Required before round 1, so it must never be a blank required
- * field: it arrives with a best guess already selected (see homeAirportGuess)
- * and the primary button names it — "Start boarding from RDU". Typing is a
- * correction, and because 21 city names in the dataset span more than one
- * country, corrections are offered as a list rather than resolved silently.
+ * Check-in. Required before round 1, so it leads with the answer rather than
+ * an empty field: the guess (see homeAirportGuess) is already resolved, the
+ * primary pill names it, and the input below is framed as a correction.
+ *
+ * The one exception is a timezone-only guess. That layer collapses a whole
+ * zone to its biggest airport — every player in America/New_York would be
+ * handed ATL — and the home airport decides where scores post and what
+ * distances are measured from, so a wrong one quietly corrupts both. When
+ * that's all we have, the pill stays disabled until the player picks.
  */
 export default function CheckinScreen({ airports, byCode, guess, onCheckIn }: Props) {
   const [input, setInput] = useState('');
   const [picked, setPicked] = useState<Airport | null>(null);
+  /** Set when the player chooses a row themselves — at that point it stops being a guess. */
+  const [chosen, setChosen] = useState(false);
   const cityIndex = useCityIndex();
   const geo = useGeolocation();
 
@@ -60,28 +56,43 @@ export default function CheckinScreen({ airports, byCode, guess, onCheckIn }: Pr
     [airports, byCode, cityIndex, typed, timezone],
   );
 
-  // Precedence: what you typed, else where you are, else the opening guess.
+  // Precedence: what you typed, else where your device says you are, else the
+  // opening guess.
   let candidates: Airport[];
   let distances: Map<string, number> | null = null;
-  let source: GuessSource | 'typed' | 'device' = guess?.source ?? 'none';
+  let origin: Origin;
   if (typed.length >= 3 && searchResults.length > 0) {
     candidates = searchResults;
-    source = 'typed';
+    origin = 'typed';
   } else if (geoCandidates) {
     candidates = geoCandidates.map((n) => n.airport);
     distances = new Map(geoCandidates.map((n) => [n.airport.iata, n.km]));
-    source = 'device';
+    origin = 'device';
   } else {
     candidates = guess?.candidates ?? [];
+    origin = guess?.source ?? 'none';
   }
 
-  // The selection survives input that matches nothing, so a stray keystroke
-  // can never strand the player behind a disabled button.
-  const selected = picked ?? candidates[0] ?? guess?.airport ?? null;
+  // Typing and tapping "use my location" are deliberate acts, and a saved or
+  // connection-derived airport is specific enough to stand on its own. Only
+  // the timezone guess has to be confirmed by hand.
+  const preselects = origin !== 'timezone' && origin !== 'none';
+  const selected = picked ?? (preselects ? (candidates[0] ?? null) : null);
   const noMatch = typed.length >= 3 && searchResults.length === 0;
 
-  const provenance =
-    source === 'typed' ? '' : source === 'device' ? 'From your device location' : PROVENANCE[source as GuessSource];
+  // Nothing for a saved airport — announcing that we remembered it sits badly
+  // next to "we don't store your location", and a silent prefill is what any
+  // form would do anyway. Nothing once they've chosen a row either: at that
+  // point it's their answer, not our guess.
+  const note = chosen
+    ? ''
+    : origin === 'connection'
+      ? 'Guessed from connection'
+      : origin === 'timezone'
+        ? `Guessed from timezone${selected ? '' : ' — pick yours below.'}`
+        : origin === 'device'
+          ? 'From your device location'
+          : '';
 
   return (
     <div
@@ -92,7 +103,7 @@ export default function CheckinScreen({ airports, byCode, guess, onCheckIn }: Pr
         alignItems: 'center',
         justifyContent: 'center',
         textAlign: 'center',
-        gap: 16,
+        gap: 14,
         padding: '12px 28px 48px',
         boxSizing: 'border-box',
         width: '100%',
@@ -108,9 +119,28 @@ export default function CheckinScreen({ airports, byCode, guess, onCheckIn }: Pr
         Your route leans toward familiar skies, and we measure every mile you fly from here.
       </p>
 
+      {/* The answer comes first: confirm, then correct. */}
+      <button
+        className="btn btn-pill"
+        onClick={() => selected && onCheckIn(selected.iata)}
+        disabled={!selected}
+        style={{ minHeight: 44, width: '100%', maxWidth: 300, marginTop: 2 }}
+      >
+        {selected ? `Start boarding from ${selected.iata}` : 'Choose your airport'}
+      </button>
+
+      {/* Naming the airport under the pill is what stops a blind tap — a bare
+          3-letter code invites people not to look. */}
+      {selected && (
+        <span style={{ fontSize: 12, color: 'var(--color-neutral-400)', maxWidth: 300, lineHeight: 1.4 }}>
+          {selected.name} · {selected.city_name}, {selected.country}
+        </span>
+      )}
+      {note && <span style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{note}</span>}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 300, textAlign: 'left' }}>
         <label htmlFor="gc-checkin-input" style={{ fontSize: 12, color: 'color-mix(in srgb, var(--color-text) 70%, transparent)' }}>
-          Home or current airport
+          {selected ? 'Change your airport' : 'Find your airport'}
         </label>
         {/* 19px: comfortably over the 16px iOS auto-zoom threshold. */}
         <input
@@ -120,12 +150,13 @@ export default function CheckinScreen({ airports, byCode, guess, onCheckIn }: Pr
           onChange={(e) => {
             setInput(e.target.value);
             setPicked(null);
+            setChosen(false);
             setGeoCandidates(null);
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && selected) onCheckIn(selected.iata);
           }}
-          placeholder="Code, city or town"
+          placeholder="Code or city"
           autoComplete="off"
           autoCapitalize="characters"
           spellCheck={false}
@@ -151,7 +182,10 @@ export default function CheckinScreen({ airports, byCode, guess, onCheckIn }: Pr
                   type="button"
                   role="radio"
                   aria-checked={active}
-                  onClick={() => setPicked(a)}
+                  onClick={() => {
+                    setPicked(a);
+                    setChosen(true);
+                  }}
                   style={{
                     fontFamily: 'inherit',
                     cursor: 'pointer',
@@ -180,13 +214,6 @@ export default function CheckinScreen({ airports, byCode, guess, onCheckIn }: Pr
               );
             })}
           </div>
-        )}
-
-        {provenance && candidates.length > 0 && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--color-neutral-600)' }}>
-            {PLANE_ICON}
-            {provenance} — change it above if that&rsquo;s not you.
-          </span>
         )}
 
         {noMatch && (
@@ -236,15 +263,6 @@ export default function CheckinScreen({ airports, byCode, guess, onCheckIn }: Pr
           )}
         </div>
       </div>
-
-      <button
-        className="btn btn-primary"
-        onClick={() => selected && onCheckIn(selected.iata)}
-        disabled={!selected}
-        style={{ minHeight: 44, width: '100%', maxWidth: 300, fontSize: 15 }}
-      >
-        {selected ? `Start boarding from ${selected.iata}` : 'Start boarding'}
-      </button>
     </div>
   );
 }
