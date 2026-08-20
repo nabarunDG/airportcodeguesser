@@ -17,7 +17,7 @@ export default function FlightLeadersBoard({ engine }: Props) {
   const { state } = engine;
   const byAvg = state.lbSort === 'avg';
   const arrow = (active: boolean) => (active ? (state.lbDir === 'desc' ? '▼' : '▲') : '⇅');
-  const { pax, points } = state.lbToday;
+  const { topTotal, topAvg } = state.lbWinners;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -28,9 +28,20 @@ export default function FlightLeadersBoard({ engine }: Props) {
         </p>
       </div>
 
-      {(pax > 0 || points > 0) && (
+      {(topTotal || topAvg) && (
         <p style={{ fontSize: 11.5, color: 'var(--color-neutral-500)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-          Today: {pax} pax · +{points} pts added to the board
+          Last week's winners:{' '}
+          {topTotal && (
+            <>
+              {topTotal.airport} with {topTotal.score} total points
+            </>
+          )}
+          {topTotal && topAvg && ', and '}
+          {topAvg && (
+            <>
+              {topAvg.airport} with {topAvg.avg} highest average points
+            </>
+          )}
         </p>
       )}
 

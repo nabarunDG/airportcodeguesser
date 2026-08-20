@@ -34,7 +34,7 @@ export default function RevealScreen({ engine }: Props) {
 
   const continentsTouched = new Set(state.stamps.map((s) => s.continent)).size;
   const tease = nextMilestone(state.stamps.length);
-  const nextLabel = state.roundIdx + 1 >= 10 ? 'See boarding pass' : 'Next code';
+  const nextLabel = state.roundIdx + 1 >= 10 ? 'See Results' : 'Next code';
   // The dial is calibrated to this mode's true ceiling (GB 160, FF 210) so a
   // perfect batch lands near the stop instead of pegging past it.
   const dial = scoreGaugeCalibration(state.mode);

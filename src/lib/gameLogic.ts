@@ -715,6 +715,11 @@ export function weekEndUTC(): string {
   return addDaysUTC(weekStartUTC(), 6);
 }
 
+/** Monday of the previous UTC week — the aggregation window for "last week's winners". */
+export function lastWeekStartUTC(): string {
+  return addDaysUTC(weekStartUTC(), -7);
+}
+
 /** Human-readable week range for the leaderboard header, e.g. "Aug 3–9, 2026". */
 export function weekRangeDisplay(): string {
   const start = weekStartUTC();

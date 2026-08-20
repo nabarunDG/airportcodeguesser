@@ -8,9 +8,10 @@
 // current UTC ISO week (Monday–Sunday) — Score = sum of posted scores,
 // Rounds = count of completed batches, PAX = distinct players, Avg =
 // Score/Rounds to 1 decimal. Every submission is still stamped with its exact
-// UTC day (unchanged), so a lightweight same-day "today" stat can be read off
-// the same storage without any schema/shape change — see `TodayStats`.
-import type { LbDir, LbSort, LeaderboardRow, TodayStats } from '../types';
+// UTC day (unchanged), so the *previous* week's window can be read off the
+// same storage to surface last week's top total and top average — see
+// `WeekWinners`.
+import type { LbDir, LbSort, LeaderboardRow, WeekWinners } from '../types';
 import { addDaysUTC, todayUTC } from './gameLogic';
 
 export interface ScoreSubmission {
@@ -23,7 +24,7 @@ export interface ScoreSubmission {
 
 export interface LeaderboardParams {
   weekStart: string; // UTC 'YYYY-MM-DD', Monday — the aggregation window's inclusive start
-  today: string; // UTC 'YYYY-MM-DD' — source date for the `today` stat
+  lastWeekStart: string; // UTC 'YYYY-MM-DD', the prior Monday — source window for `winners`
   sort: LbSort;
   dir: LbDir;
   playerId: string;
@@ -36,7 +37,7 @@ export interface SubmitResult {
 
 export interface LeaderboardClient {
   submitScore(input: { airport: string; playerId: string; score: number }): Promise<SubmitResult>;
-  getLeaderboard(params: LeaderboardParams): Promise<{ rows: LeaderboardRow[]; today: TodayStats }>;
+  getLeaderboard(params: LeaderboardParams): Promise<{ rows: LeaderboardRow[]; winners: WeekWinners }>;
 }
 
 const STORAGE_KEY = 'gatecheck_lb_submissions';
@@ -70,22 +71,26 @@ export const localLeaderboardClient: LeaderboardClient = {
     return { ok: true };
   },
 
-  async getLeaderboard({ weekStart, today, sort, dir, playerId }) {
+  async getLeaderboard({ weekStart, lastWeekStart, sort, dir, playerId }) {
     const all = readAll();
     // 'YYYY-MM-DD' strings sort lexicographically = chronologically, so a
     // plain string range check is enough — no date parsing needed.
-    const weekEnd = addDaysUTC(weekStart, 6);
-    const rows = all.filter((r) => r.day >= weekStart && r.day <= weekEnd);
-    const agg = new Map<string, { airport: string; score: number; rounds: number; players: Set<string> }>();
-    for (const r of rows) {
-      const g = agg.get(r.airport) ?? { airport: r.airport, score: 0, rounds: 0, players: new Set<string>() };
-      g.score += r.score;
-      g.rounds += r.rounds;
-      g.players.add(r.playerId);
-      agg.set(r.airport, g);
-    }
+    const aggregate = (windowStart: string) => {
+      const windowEnd = addDaysUTC(windowStart, 6);
+      const rows = all.filter((r) => r.day >= windowStart && r.day <= windowEnd);
+      const agg = new Map<string, { airport: string; score: number; rounds: number; players: Set<string> }>();
+      for (const r of rows) {
+        const g = agg.get(r.airport) ?? { airport: r.airport, score: 0, rounds: 0, players: new Set<string>() };
+        g.score += r.score;
+        g.rounds += r.rounds;
+        g.players.add(r.playerId);
+        agg.set(r.airport, g);
+      }
+      return agg;
+    };
 
     const avgOf = (g: { score: number; rounds: number }) => (g.rounds ? g.score / g.rounds : 0);
+    const agg = aggregate(weekStart);
     const dirMul = dir === 'asc' ? -1 : 1;
     const list = [...agg.values()].sort(
       (x, y) => dirMul * (sort === 'avg' ? avgOf(y) - avgOf(x) : y.score - x.score),
@@ -101,13 +106,15 @@ export const localLeaderboardClient: LeaderboardClient = {
       you: g.players.has(playerId),
     }));
 
-    const todayRows = all.filter((r) => r.day === today);
-    const todayStats: TodayStats = {
-      pax: new Set(todayRows.map((r) => r.playerId)).size,
-      points: todayRows.reduce((sum, r) => sum + r.score, 0),
+    const lastWeek = [...aggregate(lastWeekStart).values()];
+    const topTotal = lastWeek.length ? lastWeek.reduce((a, b) => (b.score > a.score ? b : a)) : null;
+    const topAvg = lastWeek.length ? lastWeek.reduce((a, b) => (avgOf(b) > avgOf(a) ? b : a)) : null;
+    const winners: WeekWinners = {
+      topTotal: topTotal ? { airport: topTotal.airport, score: topTotal.score } : null,
+      topAvg: topAvg ? { airport: topAvg.airport, avg: Math.round(avgOf(topAvg) * 10) / 10 } : null,
     };
 
-    return { rows: rowsOut, today: todayStats };
+    return { rows: rowsOut, winners };
   },
 };
 
@@ -130,20 +137,20 @@ export const apiLeaderboardClient: LeaderboardClient = {
     }
   },
 
-  async getLeaderboard({ weekStart, today, sort, dir, playerId }) {
-    const empty = { rows: [] as LeaderboardRow[], today: { pax: 0, points: 0 } };
+  async getLeaderboard({ weekStart, lastWeekStart, sort, dir, playerId }) {
+    const empty = { rows: [] as LeaderboardRow[], winners: { topTotal: null, topAvg: null } as WeekWinners };
     try {
-      const params = new URLSearchParams({ weekStart, date: today, sort, dir, playerId });
+      const params = new URLSearchParams({ weekStart, lastWeekStart, sort, dir, playerId });
       // `no-store` here as well as on the response: the server header stops new
       // responses being cached, but a browser that already holds a heuristically
       // cached copy would keep serving it, so a player mid-session would still
       // see a stale board right after posting.
       const res = await fetch(`/api/leaderboard?${params.toString()}`, { cache: 'no-store' });
       if (!res.ok) return empty;
-      const body = (await res.json()) as { rows?: LeaderboardRow[]; today?: TodayStats };
+      const body = (await res.json()) as { rows?: LeaderboardRow[]; winners?: WeekWinners };
       return {
         rows: Array.isArray(body.rows) ? body.rows : [],
-        today: body.today ?? empty.today,
+        winners: body.winners ?? empty.winners,
       };
     } catch {
       return empty;
