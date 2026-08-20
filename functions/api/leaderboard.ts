@@ -1,13 +1,14 @@
-// GET /api/leaderboard?weekStart=YYYY-MM-DD&date=YYYY-MM-DD&sort=total|avg&dir=desc|asc&playerId=...
+// GET /api/leaderboard?weekStart=YYYY-MM-DD&lastWeekStart=YYYY-MM-DD&sort=total|avg&dir=desc|asc&playerId=...
 // Runs one of four precompiled GROUP BY queries (see functions/lib/sql.ts) —
 // `sort`/`dir` are validated against a fixed enum before ever touching the
 // query lookup, so there's no free-form ORDER BY built from request input.
-// `weekStart` (a Monday) drives the main ranked table; `date` (today) drives
-// the separate, ungrouped "today" activity stat — two different windows over
-// the same table, see functions/lib/sql.ts's header comment.
+// `weekStart` (a Monday) drives the main ranked table; `lastWeekStart` (the
+// prior Monday) drives the "last week's winners" line — the same two
+// precompiled queries (total_desc, avg_desc), just bound to a different
+// window and read for their top row only.
 import type { PagesFunction } from '@cloudflare/workers-types';
-import type { LbDir, LbSort, LeaderboardRow, TodayStats } from '../../src/types';
-import { LEADERBOARD_QUERIES, TODAY_STATS_QUERY, YOUR_AIRPORTS_QUERY } from '../lib/sql';
+import type { LbDir, LbSort, LeaderboardRow, WeekWinners } from '../../src/types';
+import { LEADERBOARD_QUERIES, YOUR_AIRPORTS_QUERY } from '../lib/sql';
 import { jsonResponse } from '../lib/http';
 
 interface Env {
@@ -22,11 +23,6 @@ interface LeaderboardRowFromDb {
   avg: number;
 }
 
-interface TodayStatsFromDb {
-  points: number | null;
-  pax: number | null;
-}
-
 const VALID_SORTS: readonly LbSort[] = ['total', 'avg'];
 const VALID_DIRS: readonly LbDir[] = ['asc', 'desc'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -34,13 +30,13 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
   const weekStart = url.searchParams.get('weekStart') ?? '';
-  const date = url.searchParams.get('date') ?? '';
+  const lastWeekStart = url.searchParams.get('lastWeekStart') ?? '';
   const sortParam = url.searchParams.get('sort') ?? 'total';
   const dirParam = url.searchParams.get('dir') ?? 'desc';
   const playerId = url.searchParams.get('playerId') ?? '';
 
-  if (!DATE_RE.test(weekStart) || !DATE_RE.test(date)) {
-    return jsonResponse({ ok: false, error: 'Invalid or missing weekStart/date (expected YYYY-MM-DD).' }, 400);
+  if (!DATE_RE.test(weekStart) || !DATE_RE.test(lastWeekStart)) {
+    return jsonResponse({ ok: false, error: 'Invalid or missing weekStart/lastWeekStart (expected YYYY-MM-DD).' }, 400);
   }
   const sort: LbSort = VALID_SORTS.includes(sortParam as LbSort) ? (sortParam as LbSort) : 'total';
   const dir: LbDir = VALID_DIRS.includes(dirParam as LbDir) ? (dirParam as LbDir) : 'desc';
@@ -67,8 +63,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     you: yourAirports.has(r.airport),
   }));
 
-  const todayRow = await env.DB.prepare(TODAY_STATS_QUERY).bind(date).first<TodayStatsFromDb>();
-  const today: TodayStats = { points: todayRow?.points ?? 0, pax: todayRow?.pax ?? 0 };
+  const [{ results: topTotalRows }, { results: topAvgRows }] = await Promise.all([
+    env.DB.prepare(LEADERBOARD_QUERIES.total_desc).bind(lastWeekStart).all<LeaderboardRowFromDb>(),
+    env.DB.prepare(LEADERBOARD_QUERIES.avg_desc).bind(lastWeekStart).all<LeaderboardRowFromDb>(),
+  ]);
+  const winners: WeekWinners = {
+    topTotal: topTotalRows[0] ? { airport: topTotalRows[0].airport, score: topTotalRows[0].score } : null,
+    topAvg: topAvgRows[0] ? { airport: topAvgRows[0].airport, avg: topAvgRows[0].avg } : null,
+  };
 
-  return jsonResponse({ weekStart, rows, today }, 200);
+  return jsonResponse({ weekStart, rows, winners }, 200);
 };

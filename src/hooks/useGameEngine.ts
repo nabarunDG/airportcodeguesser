@@ -22,7 +22,7 @@ import type {
   Mode,
   Screen,
   StampRecord,
-  TodayStats,
+  WeekWinners,
 } from '../types';
 import {
   BATCH_SIZE,
@@ -41,6 +41,7 @@ import {
   continentBonus,
   crossesDateLine,
   haversineKm,
+  lastWeekStartUTC,
   makeChoices,
   makeFact,
   todayUTC,
@@ -133,12 +134,12 @@ interface EngineState {
   choices: Choice[];
   fact: string;
   lbRows: LeaderboardRow[];
-  lbToday: TodayStats;
+  lbWinners: WeekWinners;
   lbSort: LbSort;
   lbDir: LbDir;
 }
 
-const NO_TODAY_STATS: TodayStats = { pax: 0, points: 0 };
+const NO_WEEK_WINNERS: WeekWinners = { topTotal: null, topAvg: null };
 
 const NO_CLUES: ClueFlags = { car: false, dest: false };
 const NO_HINTS: HintFlags = { country: false, carrierNames: false, destNames: false };
@@ -178,7 +179,7 @@ const initialState: EngineState = {
   choices: [],
   fact: '',
   lbRows: [],
-  lbToday: NO_TODAY_STATS,
+  lbWinners: NO_WEEK_WINNERS,
   lbSort: 'total',
   lbDir: 'desc',
 };
@@ -219,7 +220,7 @@ type Action =
   | { type: 'GO_HOME' }
   | { type: 'GO_LEADERBOARD' }
   | { type: 'SCORE_SAVED' }
-  | { type: 'SET_LB_ROWS'; rows: LeaderboardRow[]; today: TodayStats }
+  | { type: 'SET_LB_ROWS'; rows: LeaderboardRow[]; winners: WeekWinners }
   | { type: 'SET_LB_SORT'; sort: LbSort; dir: LbDir };
 
 function reducer(state: EngineState, action: Action): EngineState {
@@ -366,7 +367,7 @@ function reducer(state: EngineState, action: Action): EngineState {
       // there, so posting a score no longer needs to navigate anywhere.
       return { ...state, saved: true };
     case 'SET_LB_ROWS':
-      return { ...state, lbRows: action.rows, lbToday: action.today };
+      return { ...state, lbRows: action.rows, lbWinners: action.winners };
     case 'SET_LB_SORT':
       return { ...state, lbSort: action.sort, lbDir: action.dir };
     default:
@@ -665,14 +666,14 @@ export function useGameEngine(
   }, []);
 
   const refreshLeaderboard = useCallback(async () => {
-    const { rows, today } = await leaderboardClient.getLeaderboard({
+    const { rows, winners } = await leaderboardClient.getLeaderboard({
       weekStart: weekStartUTC(),
-      today: todayUTC(),
+      lastWeekStart: lastWeekStartUTC(),
       sort: state.lbSort,
       dir: state.lbDir,
       playerId: getPlayerId(),
     });
-    dispatch({ type: 'SET_LB_ROWS', rows, today });
+    dispatch({ type: 'SET_LB_ROWS', rows, winners });
   }, [leaderboardClient, state.lbDir, state.lbSort]);
 
   // 'summary' loads the board the instant a batch finishes — no click
@@ -681,7 +682,7 @@ export function useGameEngine(
   useEffect(() => {
     if (state.screen === 'leaderboard' || state.screen === 'summary') {
       refreshLeaderboard().catch(() => {
-        dispatch({ type: 'SET_LB_ROWS', rows: [], today: NO_TODAY_STATS });
+        dispatch({ type: 'SET_LB_ROWS', rows: [], winners: NO_WEEK_WINNERS });
       });
     }
   }, [state.screen, state.lbSort, state.lbDir, refreshLeaderboard]);
@@ -700,7 +701,7 @@ export function useGameEngine(
           // Refresh right away so the player's own row/rank shows up
           // immediately rather than waiting on the screen-driven effect.
           refreshLeaderboard().catch(() => {
-            dispatch({ type: 'SET_LB_ROWS', rows: [], today: NO_TODAY_STATS });
+            dispatch({ type: 'SET_LB_ROWS', rows: [], winners: NO_WEEK_WINNERS });
           });
         }
       });

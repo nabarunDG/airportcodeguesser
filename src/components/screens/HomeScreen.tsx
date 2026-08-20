@@ -39,7 +39,7 @@ export default function HomeScreen({ mode, onSetMode, onStart, onGoLeaderboard }
         <ModeSwitch mode={mode} onSetMode={onSetMode} />
         <div className="gc-home-actions">
           <button className="btn btn-pill btn-block" onClick={onStart} style={{ minHeight: 44 }}>
-            Check in
+            Check in to play
           </button>
           <button className="btn btn-secondary btn-block" onClick={onGoLeaderboard} style={{ minHeight: 44, borderRadius: 24 }}>
             Flight Leaders

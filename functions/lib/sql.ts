@@ -4,12 +4,11 @@
 // the query string (see functions/api/leaderboard.ts for how the enum lookup
 // is validated before this module is even consulted).
 //
-// Aggregation window is the current UTC ISO week (Monday–Sunday), not a
-// single day — ?1 is the week's Monday, bound once; `date(?1, '+6 days')`
-// derives Sunday in SQL rather than requiring a second client-computed bound.
-// Every row is still stamped with its own exact day (see INSERT_SCORE_QUERY,
-// unchanged), so TODAY_STATS_QUERY below can read a same-day signal off the
-// same table with no schema change.
+// Aggregation window is a UTC ISO week (Monday–Sunday), not a single day —
+// ?1 is the week's Monday, bound once; `date(?1, '+6 days')` derives Sunday
+// in SQL rather than requiring a second client-computed bound. The same
+// queries, bound to the *previous* Monday, also serve the "last week's
+// winners" line — see functions/api/leaderboard.ts.
 import type { LbDir, LbSort } from '../../src/types';
 
 const SELECT = `
@@ -33,14 +32,6 @@ export const LEADERBOARD_QUERIES: Record<`${LbSort}_${LbDir}`, string> = {
 export const YOUR_AIRPORTS_QUERY = `
   SELECT DISTINCT airport FROM score_submissions
   WHERE day BETWEEN ?1 AND date(?1, '+6 days') AND player_id = ?2
-`;
-
-// The "today" strip's source — a single ungrouped row over the exact UTC
-// day, independent of the weekly window above.
-export const TODAY_STATS_QUERY = `
-  SELECT SUM(score) AS points, COUNT(DISTINCT player_id) AS pax
-  FROM score_submissions
-  WHERE day = ?1
 `;
 
 export const INSERT_SCORE_QUERY = `

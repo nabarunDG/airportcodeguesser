@@ -98,8 +98,8 @@ export interface LeaderboardRow {
 export type LbSort = 'total' | 'avg';
 export type LbDir = 'asc' | 'desc';
 
-/** Same-day activity signal shown alongside the (now weekly) leaderboard — see leaderboardClient.ts. */
-export interface TodayStats {
-  pax: number;
-  points: number;
+/** Last week's top performers, shown alongside the (current-week) leaderboard — see leaderboardClient.ts. */
+export interface WeekWinners {
+  topTotal: { airport: string; score: number } | null;
+  topAvg: { airport: string; avg: number } | null;
 }
