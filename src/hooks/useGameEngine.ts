@@ -51,7 +51,6 @@ import { rollEventLine } from '../lib/eventLines';
 import { stampSlots } from '../lib/stampTemplates';
 import type { LeaderboardClient } from '../lib/leaderboardClient';
 import { getPlayerId } from '../lib/playerId';
-import { reportBatch } from '../lib/metrics';
 import { accumulateTime } from '../lib/timeMetric';
 import { loadStampedToday, loadUsedToday, saveStampedToday, saveUsedToday } from '../lib/usedAirportsStore';
 
@@ -639,22 +638,12 @@ export function useGameEngine(
       };
       if (batchStartRef.current != null) {
         accumulateTime(Math.floor((Date.now() - batchStartRef.current) / 1000));
-        // One anonymous row per finished batch (fire-and-forget, same trust
-        // model as the visits ping). Duration runs to the final answer/skip
-        // (batchEndMs), not to this button click. Score includes end bonuses.
-        reportBatch({
-          durationSeconds: Math.max(0, Math.floor(((state.batchEndMs ?? Date.now()) - batchStartRef.current) / 1000)),
-          score: state.score + end.continents + end.dateLine + end.longHaul + end.elite,
-          correct: state.correct,
-          hintsUsed: state.hintsUsedTotal,
-          stamps: state.stamps.length,
-        });
       }
       dispatch({ type: 'GO_TO_SUMMARY', now: Date.now(), end });
     } else {
       startRound(nextIdx);
     }
-  }, [byCode, startRound, state.batchEndMs, state.correct, state.hintsUsedTotal, state.homeAirport, state.journey, state.mode, state.roundIdx, state.score, state.stamps]);
+  }, [byCode, startRound, state.homeAirport, state.journey, state.mode, state.roundIdx, state.stamps]);
 
   const goHome = useCallback(() => {
     act();

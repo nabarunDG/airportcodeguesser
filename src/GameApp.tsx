@@ -3,7 +3,6 @@ import type { Airport } from './types';
 import { useGameEngine } from './hooks/useGameEngine';
 import { defaultLeaderboardClient } from './lib/leaderboardClient';
 import { guessHomeAirport, type HomeGuess } from './lib/homeAirportGuess';
-import { startMetricsPing } from './lib/metrics';
 import Header from './components/Header';
 import CloudBackground from './components/CloudBackground';
 import IdleDialog from './components/IdleDialog';
@@ -24,10 +23,6 @@ export default function GameApp({ airports, byCode }: Props) {
   const engine = useGameEngine(airports, byCode, defaultLeaderboardClient);
   const { state } = engine;
   const inPlay = state.screen === 'game' || state.screen === 'reveal';
-
-  // Anonymous, first-party usage telemetry — see src/lib/metrics.ts. Not
-  // displayed anywhere in the app.
-  useEffect(() => startMetricsPing(), []);
 
   // Resolve the opening check-in guess up front, while the player is still
   // reading the Home screen, so the screen they tap into is already filled in

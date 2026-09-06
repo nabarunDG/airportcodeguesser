@@ -119,30 +119,6 @@ npm run data:refresh
 
 Every push to `main` auto-deploys from then on — no server to maintain.
 
-## Usage stats (internal, no third-party analytics)
-
-Two first-party endpoints write anonymous, aggregate-only data to D1 — no
-analytics script, no PII, both reusing the same anonymous player id as the
-leaderboard, neither shown anywhere in the app:
-
-- `POST /api/ping` → `visits`: unique visitors and time on site per UTC day.
-- `POST /api/batch` → `batches`: one row per finished batch (duration to the
-  final answer, score, correct count, hints used, stamps earned). Fired
-  whether or not the player posts a leaderboard score, so it covers every
-  batch played rather than only submitted ones.
-
-To check the numbers:
-
-- **Cloudflare dashboard** — open the `gatecheck-leaderboard` D1 database →
-  Console tab → run SQL directly.
-- **CLI** — `wrangler d1 execute gatecheck-leaderboard --remote --command "SELECT day, COUNT(DISTINCT player_id) AS unique_users, SUM(seconds) AS total_seconds FROM visits GROUP BY day ORDER BY day"`
-  (and for gameplay: `"SELECT day, COUNT(*) AS batches, AVG(duration_seconds) AS avg_secs, AVG(score) AS avg_score FROM batches GROUP BY day ORDER BY day"`)
-- **A file on GitHub** — `.github/workflows/stats-snapshot.yml` runs daily
-  (and on manual dispatch), re-queries D1, and commits the result straight
-  to `main` as `stats/daily-usage.json` — a browsable, versioned history
-  with no dashboard access needed. Requires two repo secrets:
-  `CLOUDFLARE_API_TOKEN` (D1 read access) and `CLOUDFLARE_ACCOUNT_ID`.
-
 ## License
 
 © 2026 N. Dasgupta · GATE CHECK™ is a trademark of N. Dasgupta. All rights
